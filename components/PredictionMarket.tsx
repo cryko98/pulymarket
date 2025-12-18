@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { getMerkets, createMerket, voteMerket, hasUserVoted, getComments, postComment } from '../services/marketService';
+import { getMerkets, createMerket, voteMerket, getUserVote, getComments, postComment } from '../services/marketService';
 import { PredictionMerket as MerketType, MerketComment } from '../types';
 import { Plus, Users, Loader2, X, BarChart3, ChevronRight, Share2, Upload, MessageSquare, Send, Twitter } from 'lucide-react';
 import html2canvas from 'html2canvas';
@@ -101,7 +101,7 @@ const CommentSection: React.FC<{ marketId: string }> = ({ marketId }) => {
 
       <div 
         ref={scrollRef}
-        className="space-y-4 max-h-[400px] overflow-y-auto pr-3 scrollbar-thin scrollbar-thumb-blue-600 scrollbar-track-transparent custom-scroll"
+        className="space-y-4 max-h-[300px] overflow-y-auto pr-3 scrollbar-thin scrollbar-thumb-blue-600 scrollbar-track-transparent custom-scroll"
       >
         {comments.length === 0 ? (
           <div className="text-center py-10 opacity-30">
@@ -125,30 +125,30 @@ const CommentSection: React.FC<{ marketId: string }> = ({ marketId }) => {
 };
 
 const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onVote: (id: string, option: 'YES' | 'NO') => void; isVoting: boolean }> = ({ merket, onClose, onVote, isVoting }) => {
-  const [selectedOption, setSelectedOption] = useState<'YES' | 'NO' | null>(null);
+  const currentVote = getUserVote(merket.id);
+  const [selectedOption, setSelectedOption] = useState<'YES' | 'NO' | null>(currentVote);
   const [isCapturing, setIsCapturing] = useState(false);
   const captureRef = useRef<HTMLDivElement>(null);
   
   const totalVotes = merket.yesVotes + merket.noVotes;
   const yesProb = totalVotes === 0 ? 50 : Math.round((merket.yesVotes / totalVotes) * 100);
-  const alreadyVoted = hasUserVoted(merket.id);
 
   const handleTweetAction = async () => {
+    if (!selectedOption) return;
     setIsCapturing(true);
     
-    // 1. Vote first if not already voted
-    if (selectedOption && !alreadyVoted) {
+    // 1. Vote first if different from current
+    if (selectedOption !== currentVote) {
         await onVote(merket.id, selectedOption);
     }
 
     // 2. Capture and Download Image
     if (captureRef.current) {
         try {
-            // Give a tiny moment for DOM to settle if needed
             const canvas = await html2canvas(captureRef.current, {
                 useCORS: true,
                 backgroundColor: '#ffffff',
-                scale: 2, // High resolution
+                scale: 2,
                 logging: false,
             });
             const dataUrl = canvas.toDataURL('image/png');
@@ -179,7 +179,6 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
         </button>
 
         <div className="bg-white w-full rounded-[3rem] overflow-hidden shadow-2xl flex flex-col md:flex-row border-4 border-black h-full max-h-[85vh]">
-          {/* LEFT SIDE: INFO, CHART & SCROLLABLE COMMENTS (This is the area we capture) */}
           <div className="flex-1 flex flex-col h-full overflow-hidden border-b md:border-b-0 md:border-r-4 border-black">
             <div ref={captureRef} className="p-8 overflow-y-auto custom-scroll flex-1 bg-white">
                 <div className="flex items-center gap-6 mb-8">
@@ -210,21 +209,26 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
             </div>
           </div>
 
-          {/* RIGHT SIDE: VOTING STICKY */}
           <div className="w-full md:w-80 bg-gray-100 p-8 flex flex-col justify-center border-t-4 md:border-t-0 border-black shrink-0">
             <h3 className="font-black text-3xl uppercase italic tracking-tighter mb-10 text-black text-center">POSITION</h3>
             <div className="flex flex-col gap-6 mb-10">
-              <div className="group relative">
-                <button onClick={() => setSelectedOption('YES')} className={`w-full py-6 rounded-2xl font-black text-2xl transition-all border-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${selectedOption === 'YES' ? 'bg-green-500 text-white border-black' : 'bg-white text-green-600 border-gray-200'}`}>YES ({yesProb}%)</button>
-              </div>
-              <div className="group relative">
-                <button onClick={() => setSelectedOption('NO')} className={`w-full py-6 rounded-2xl font-black text-2xl transition-all border-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${selectedOption === 'NO' ? 'bg-red-500 text-white border-black' : 'bg-white text-red-600 border-gray-200'}`}>NO ({100-yesProb}%)</button>
-              </div>
+              <button 
+                onClick={() => setSelectedOption('YES')} 
+                className={`w-full py-6 rounded-2xl font-black text-2xl transition-all border-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${selectedOption === 'YES' ? 'bg-green-500 text-white border-black' : 'bg-white text-green-600 border-gray-200'}`}
+              >
+                YES ({yesProb}%)
+              </button>
+              <button 
+                onClick={() => setSelectedOption('NO')} 
+                className={`w-full py-6 rounded-2xl font-black text-2xl transition-all border-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${selectedOption === 'NO' ? 'bg-red-500 text-white border-black' : 'bg-white text-red-600 border-gray-200'}`}
+              >
+                NO ({100-yesProb}%)
+              </button>
             </div>
             
             <div className="mt-auto">
                 <button 
-                  disabled={(!selectedOption && !alreadyVoted) || isVoting || isCapturing} 
+                  disabled={!selectedOption || isVoting || isCapturing} 
                   onClick={handleTweetAction} 
                   className="w-full bg-blue-600 text-white font-black py-6 rounded-full border-b-8 border-blue-900 shadow-2xl flex items-center justify-center gap-3 text-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-70"
                 >
@@ -239,17 +243,13 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
           </div>
         </div>
       </div>
-      <style>{`
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #2563eb; border-radius: 10px; }
-      `}</style>
     </div>
   );
 };
 
 const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void }> = ({ merket, onOpen }) => {
   const [commentCount, setCommentCount] = useState(0);
+  const currentVote = getUserVote(merket.id);
   const totalVotes = merket.yesVotes + merket.noVotes;
   const yesPercentage = totalVotes === 0 ? 50 : Math.round((merket.yesVotes / totalVotes) * 100);
 
@@ -260,7 +260,7 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
   return (
     <div onClick={() => onOpen(merket)} className="bg-white border-4 border-black rounded-[2.5rem] p-8 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] transition-all hover:-translate-y-2 hover:translate-x-1 hover:shadow-[16px_16px_0px_0px_rgba(0,0,0,1)] cursor-pointer flex flex-col group h-full relative overflow-hidden">
       
-      <div className="absolute -top-6 -right-6 w-20 h-20 bg-blue-600 rotate-45 border-4 border-black"></div>
+      <div className={`absolute -top-6 -right-6 w-20 h-20 rotate-45 border-4 border-black transition-colors ${currentVote === 'YES' ? 'bg-green-500' : currentVote === 'NO' ? 'bg-red-500' : 'bg-blue-600'}`}></div>
 
       <div className="flex items-start gap-5 mb-8">
         <div className="w-16 h-16 rounded-2xl border-4 border-black bg-blue-600 overflow-hidden shrink-0 shadow-lg">
@@ -271,6 +271,11 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
             <div className="flex gap-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
               <span className="flex items-center gap-1"><Users size={12} /> {totalVotes} Votes</span>
               <span className="flex items-center gap-1 text-blue-500"><MessageSquare size={12} /> {commentCount} Comments</span>
+              {currentVote && (
+                <span className={`px-2 rounded-md text-white ${currentVote === 'YES' ? 'bg-green-500' : 'bg-red-500'}`}>
+                    YOUR VOTE: {currentVote}
+                </span>
+              )}
             </div>
         </div>
       </div>

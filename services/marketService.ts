@@ -4,7 +4,7 @@ import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 const STORAGE_KEY = 'puly_merket_data_v2';
 const COMMENTS_KEY = 'puly_merket_comments_v1';
-const USER_VOTES_KEY = 'puly_user_votes_v2';
+const USER_VOTES_KEY = 'puly_user_votes_v3'; // Versioned key for new object structure
 const BRAND_LOGO = "https://pbs.twimg.com/media/G8b8OArXYAAkpHf?format=jpg&name=medium";
 
 const FUNNY_INSIGHTS = [
@@ -29,26 +29,29 @@ const SEED_DATA: PredictionMerket[] = [
   }
 ];
 
-export const hasUserVoted = (merketId: string): boolean => {
+/**
+ * Returns 'YES', 'NO' or null based on user's previous action
+ */
+export const getUserVote = (merketId: string): 'YES' | 'NO' | null => {
   try {
     const stored = localStorage.getItem(USER_VOTES_KEY);
-    const votes = stored ? JSON.parse(stored) : [];
-    return Array.isArray(votes) && votes.includes(merketId);
+    const votes = stored ? JSON.parse(stored) : {};
+    return votes[merketId] || null;
   } catch (e) {
-    return false;
+    return null;
   }
 };
 
-const markUserAsVoted = (merketId: string) => {
+export const hasUserVoted = (merketId: string): boolean => {
+  return getUserVote(merketId) !== null;
+};
+
+const saveUserVote = (merketId: string, option: 'YES' | 'NO') => {
   try {
     const stored = localStorage.getItem(USER_VOTES_KEY);
-    const votes = stored ? JSON.parse(stored) : [];
-    if (Array.isArray(votes) && !votes.includes(merketId)) {
-      votes.push(merketId);
-      localStorage.setItem(USER_VOTES_KEY, JSON.stringify(votes));
-    } else if (!Array.isArray(votes)) {
-      localStorage.setItem(USER_VOTES_KEY, JSON.stringify([merketId]));
-    }
+    const votes = stored ? JSON.parse(stored) : {};
+    votes[merketId] = option;
+    localStorage.setItem(USER_VOTES_KEY, JSON.stringify(votes));
   } catch (e) {
     console.error("Failed to save vote locally", e);
   }
@@ -100,20 +103,42 @@ export const createMerket = async (question: string, imageUrl?: string): Promise
 };
 
 export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void> => {
-  if (hasUserVoted(id)) return;
+  const previousVote = getUserVote(id);
+  if (previousVote === option) return; // No change
+
   if (isSupabaseConfigured() && supabase && !id.startsWith('local-')) {
-    await supabase.rpc('increment_vote', { market_id: id, vote_type: option });
-    markUserAsVoted(id);
+    await supabase.rpc('increment_vote', { 
+        market_id: id, 
+        vote_type: option,
+        previous_vote: previousVote 
+    });
+    saveUserVote(id, option);
     return;
   }
+  
+  // Local Fallback
   const stored = localStorage.getItem(STORAGE_KEY);
   const merkets = stored ? JSON.parse(stored) : [];
-  const updated = merkets.map((m: any) => m.id === id ? { ...m, yesVotes: option === 'YES' ? m.yesVotes + 1 : m.yesVotes, noVotes: option === 'NO' ? m.noVotes + 1 : m.noVotes } : m);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  markUserAsVoted(id);
-};
+  const updated = merkets.map((m: any) => {
+    if (m.id !== id) return m;
+    
+    let newYes = m.yesVotes;
+    let newNo = m.noVotes;
 
-// --- NEW COMMENT SERVICES ---
+    // Remove previous
+    if (previousVote === 'YES') newYes = Math.max(0, newYes - 1);
+    if (previousVote === 'NO') newNo = Math.max(0, newNo - 1);
+
+    // Add new
+    if (option === 'YES') newYes += 1;
+    if (option === 'NO') newNo += 1;
+
+    return { ...m, yesVotes: newYes, noVotes: newNo };
+  });
+  
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  saveUserVote(id, option);
+};
 
 export const getComments = async (marketId: string): Promise<MerketComment[]> => {
   if (isSupabaseConfigured() && supabase && !marketId.startsWith('local-')) {
