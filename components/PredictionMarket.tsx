@@ -1,16 +1,19 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { getMarkets, createMarket, voteMarket, hasUserVoted } from '../services/marketService';
 import { PredictionMarket as MarketType } from '../types';
-import { Plus, TrendingUp, Users, Loader2, CheckCircle2 } from 'lucide-react';
+import { Plus, TrendingUp, Users, Loader2, CheckCircle2, Share2, Camera } from 'lucide-react';
+import html2canvas from 'html2canvas';
 
 const MarketCard: React.FC<{ market: MarketType; onVote: (id: string, option: 'YES' | 'NO') => Promise<void>; isVoting: boolean }> = ({ market, onVote, isVoting }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
   const totalVotes = market.yesVotes + market.noVotes;
   const yesPercentage = totalVotes === 0 ? 50 : Math.round((market.yesVotes / totalVotes) * 100);
   const noPercentage = 100 - yesPercentage;
   
   const [alreadyVoted, setAlreadyVoted] = useState(false);
   const [localVoting, setLocalVoting] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
 
   useEffect(() => {
     setAlreadyVoted(hasUserVoted(market.id));
@@ -24,11 +27,71 @@ const MarketCard: React.FC<{ market: MarketType; onVote: (id: string, option: 'Y
       setLocalVoting(false);
   };
 
+  const handleShare = async () => {
+    if (!cardRef.current) return;
+    
+    setIsCapturing(true);
+    try {
+        // Capture the card as an image
+        const canvas = await html2canvas(cardRef.current, {
+            backgroundColor: '#2563eb', // Force brand background for the shot
+            scale: 2, // High res
+            logging: false,
+            useCORS: true
+        });
+        
+        const imageData = canvas.toDataURL('image/png');
+        
+        // Create a download link for the user
+        const link = document.createElement('a');
+        link.download = `pulymerket-prediction-${market.id.substring(0,5)}.png`;
+        link.href = imageData;
+        link.click();
+
+        // Open Twitter Intent
+        // Requirement: Post starts with "Pulymerket: {question}"
+        // Requirement: Link goes to #markets section
+        const text = `Pulymerket: ${market.question} 🔮📈\n\nSurvivor Check: ${yesPercentage}% YES / ${noPercentage}% NO\n\nJoin the last utility standing:`;
+        
+        // Construct the URL with anchor tag
+        const baseUrl = window.location.origin + window.location.pathname;
+        const deepLinkUrl = baseUrl.endsWith('/') ? `${baseUrl}#markets` : `${baseUrl}/#markets`;
+        
+        const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(deepLinkUrl)}`;
+        
+        // Small delay to ensure download starts
+        setTimeout(() => {
+            window.open(tweetUrl, '_blank');
+            setIsCapturing(false);
+        }, 1000);
+
+    } catch (err) {
+        console.error("Capture failed:", err);
+        setIsCapturing(false);
+        // Fallback to text only
+        const text = `Pulymerket: ${market.question} 🔮📈`;
+        const baseUrl = window.location.origin + window.location.pathname;
+        const deepLinkUrl = baseUrl.endsWith('/') ? `${baseUrl}#markets` : `${baseUrl}/#markets`;
+        const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(deepLinkUrl)}`;
+        window.open(tweetUrl, '_blank');
+    }
+  };
+
   const isDisabled = isVoting || localVoting || alreadyVoted;
 
   return (
-    <div className={`bg-white border-4 rounded-3xl p-6 shadow-2xl transition-all group relative overflow-hidden ${alreadyVoted ? 'border-blue-400 bg-blue-50' : 'border-black hover:border-blue-600 hover:-translate-y-1'}`}>
+    <div 
+      ref={cardRef}
+      className={`bg-white border-4 rounded-3xl p-6 shadow-2xl transition-all group relative overflow-hidden ${alreadyVoted ? 'border-blue-400 bg-blue-50' : 'border-black hover:border-blue-600 hover:-translate-y-1'}`}
+    >
       
+      {/* Branding for the Screenshot */}
+      {isCapturing && (
+          <div className="absolute top-2 right-4 text-[10px] font-black text-blue-600 opacity-50 uppercase tracking-tighter">
+              $pulymerket oracle v1.0
+          </div>
+      )}
+
       <div className="mb-4">
         <h3 className="text-xl font-black text-black leading-tight group-hover:text-blue-600 transition-colors flex justify-between items-start gap-2 uppercase">
           {market.question}
@@ -38,7 +101,7 @@ const MarketCard: React.FC<{ market: MarketType; onVote: (id: string, option: 'Y
 
       <div className="flex gap-3 mb-4">
         <button 
-            disabled={isDisabled}
+            disabled={isDisabled || isCapturing}
             onClick={() => handleVoteClick('YES')}
             className={`flex-1 rounded-xl py-3 px-2 flex flex-col items-center transition-all border-2 font-black
                 ${alreadyVoted 
@@ -51,7 +114,7 @@ const MarketCard: React.FC<{ market: MarketType; onVote: (id: string, option: 'Y
             <span className="text-xl">{yesPercentage}%</span>
         </button>
         <button 
-            disabled={isDisabled}
+            disabled={isDisabled || isCapturing}
             onClick={() => handleVoteClick('NO')}
             className={`flex-1 rounded-xl py-3 px-2 flex flex-col items-center transition-all border-2 font-black
                 ${alreadyVoted 
@@ -77,9 +140,18 @@ const MarketCard: React.FC<{ market: MarketType; onVote: (id: string, option: 'Y
             <Users size={16} />
             <span>{totalVotes} Voters</span>
         </div>
-        <div>
-            {alreadyVoted ? <span className="text-blue-600">CONFIRMED</span> : 'FREE'}
-        </div>
+        
+        <button 
+            onClick={handleShare}
+            disabled={isCapturing}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all shadow-md transform hover:scale-105 active:scale-95 
+                ${isCapturing ? 'bg-gray-400 text-white' : 'bg-black text-white hover:bg-zinc-800'}
+            `}
+            title="Download & Post to X"
+        >
+            {isCapturing ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
+            <span className="text-xs">{isCapturing ? 'CAPTURING...' : 'TWEET IMAGE'}</span>
+        </button>
       </div>
     </div>
   );
