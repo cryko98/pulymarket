@@ -1,203 +1,314 @@
 
 import React, { useEffect, useState, useRef } from 'react';
-import { getMarkets, createMarket, voteMarket, hasUserVoted } from '../services/marketService';
-import { PredictionMarket as MarketType } from '../types';
-import { Plus, TrendingUp, Users, Loader2, CheckCircle2, Share2, Camera } from 'lucide-react';
+import { getMerkets, createMerket, voteMerket, hasUserVoted } from '../services/marketService';
+import { PredictionMerket as MerketType } from '../types';
+import { Plus, Users, Loader2, Camera, X, Info, ArrowUpRight, BarChart3, ChevronRight, Share2, Upload, ImageIcon } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
-const MarketCard: React.FC<{ market: MarketType; onVote: (id: string, option: 'YES' | 'NO') => Promise<void>; isVoting: boolean }> = ({ market, onVote, isVoting }) => {
-  const cardRef = useRef<HTMLDivElement>(null);
-  const totalVotes = market.yesVotes + market.noVotes;
-  const yesPercentage = totalVotes === 0 ? 50 : Math.round((market.yesVotes / totalVotes) * 100);
-  const noPercentage = 100 - yesPercentage;
-  
-  const [alreadyVoted, setAlreadyVoted] = useState(false);
-  const [localVoting, setLocalVoting] = useState(false);
-  const [isCapturing, setIsCapturing] = useState(false);
+// --- MOCK CHART COMPONENT ---
+const MerketChart = () => (
+  <div className="w-full h-48 relative overflow-hidden bg-blue-50/50 rounded-xl border border-blue-100 mb-6 group">
+    <svg className="w-full h-full" viewBox="0 0 400 200">
+      <path 
+        d="M0,150 Q50,140 100,160 T200,80 T300,120 T400,40" 
+        fill="none" 
+        stroke="#2563eb" 
+        strokeWidth="4" 
+        className="animate-[dash_3s_ease-in-out_infinite]"
+        strokeDasharray="1000"
+        strokeDashoffset="1000"
+      />
+      <style>{`
+        @keyframes dash {
+          to { stroke-dashoffset: 0; }
+        }
+      `}</style>
+    </svg>
+    <div className="absolute top-2 left-2 flex gap-2">
+        <span className="bg-green-100 text-green-700 text-[10px] font-black px-2 py-0.5 rounded flex items-center gap-1">
+            <ArrowUpRight size={10} /> + Sentiment Momentum
+        </span>
+    </div>
+  </div>
+);
 
-  useEffect(() => {
-    setAlreadyVoted(hasUserVoted(market.id));
-  }, [market.id]);
+// --- DETAIL MODAL ---
+const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onVote: (id: string, option: 'YES' | 'NO') => void; isVoting: boolean }> = ({ merket, onClose, onVote, isVoting }) => {
+  const [selectedOption, setSelectedOption] = useState<'YES' | 'NO' | null>(null);
+  const detailRef = useRef<HTMLDivElement>(null);
 
-  const handleVoteClick = async (option: 'YES' | 'NO') => {
-      if (alreadyVoted) return;
-      setLocalVoting(true);
-      await onVote(market.id, option);
-      setAlreadyVoted(true);
-      setLocalVoting(false);
-  };
+  const totalVotes = merket.yesVotes + merket.noVotes;
+  const yesProb = totalVotes === 0 ? 50 : Math.round((merket.yesVotes / totalVotes) * 100);
+  const alreadyVoted = hasUserVoted(merket.id);
 
-  const handleShare = async () => {
-    if (!cardRef.current) return;
-    
-    setIsCapturing(true);
+  const downloadCard = async () => {
+    if (!detailRef.current) return;
     try {
-        // Capture the card as an image
-        const canvas = await html2canvas(cardRef.current, {
-            backgroundColor: '#2563eb', // Force brand background for the shot
-            scale: 2, // High res
-            logging: false,
-            useCORS: true
+        const canvas = await html2canvas(detailRef.current, { 
+          scale: 2, 
+          backgroundColor: '#ffffff',
+          logging: false,
+          useCORS: true 
         });
-        
-        const imageData = canvas.toDataURL('image/png');
-        
-        // Create a download link for the user
         const link = document.createElement('a');
-        link.download = `pulymerket-prediction-${market.id.substring(0,5)}.png`;
-        link.href = imageData;
+        link.download = `puly-merket-${merket.id.substring(0,4)}.png`;
+        link.href = canvas.toDataURL('image/png');
         link.click();
-
-        // Open Twitter Intent
-        // Requirement: Post starts with "Pulymerket: {question}"
-        // Requirement: Link goes to #markets section
-        const text = `Pulymerket: ${market.question} 🔮📈\n\nSurvivor Check: ${yesPercentage}% YES / ${noPercentage}% NO\n\nJoin the last utility standing:`;
-        
-        // Construct the URL with anchor tag
-        const baseUrl = window.location.origin + window.location.pathname;
-        const deepLinkUrl = baseUrl.endsWith('/') ? `${baseUrl}#markets` : `${baseUrl}/#markets`;
-        
-        const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(deepLinkUrl)}`;
-        
-        // Small delay to ensure download starts
-        setTimeout(() => {
-            window.open(tweetUrl, '_blank');
-            setIsCapturing(false);
-        }, 1000);
-
-    } catch (err) {
-        console.error("Capture failed:", err);
-        setIsCapturing(false);
-        // Fallback to text only
-        const text = `Pulymerket: ${market.question} 🔮📈`;
-        const baseUrl = window.location.origin + window.location.pathname;
-        const deepLinkUrl = baseUrl.endsWith('/') ? `${baseUrl}#markets` : `${baseUrl}/#markets`;
-        const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(deepLinkUrl)}`;
-        window.open(tweetUrl, '_blank');
-    }
+    } catch (e) { console.error("Image generation failed", e); }
   };
 
-  const isDisabled = isVoting || localVoting || alreadyVoted;
+  const handleTweetAction = async () => {
+    if (selectedOption && !alreadyVoted) {
+        onVote(merket.id, selectedOption);
+    }
+
+    // Download the image proof as requested
+    await downloadCard();
+
+    // Prepare Tweet
+    const baseUrl = window.location.origin + window.location.pathname;
+    // Clean deep link to the specific merket
+    const shortLink = `${baseUrl.split('#')[0]}#m-${merket.id}`;
+    
+    const sentiment = selectedOption === 'YES' ? "BULLISH 🟢" : (selectedOption === 'NO' ? "BEARISH 🔴" : "PREDICTING... 🔮");
+    const tweetText = `Merket Check: "${merket.question}"\n\nCommunity: ${yesProb}% YES\nMy Verdict: ${sentiment}\n\nCast your vote here:\n${shortLink}\n\n$PULY`;
+    
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`, '_blank');
+  };
 
   return (
-    <div 
-      ref={cardRef}
-      className={`bg-white border-4 rounded-3xl p-6 shadow-2xl transition-all group relative overflow-hidden ${alreadyVoted ? 'border-blue-400 bg-blue-50' : 'border-black hover:border-blue-600 hover:-translate-y-1'}`}
-    >
-      
-      {/* Branding for the Screenshot */}
-      {isCapturing && (
-          <div className="absolute top-2 right-4 text-[10px] font-black text-blue-600 opacity-50 uppercase tracking-tighter">
-              $pulymerket oracle v1.0
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
+      <div className="relative w-full max-w-4xl">
+        <button 
+          onClick={onClose} 
+          className="absolute -top-12 md:-top-6 md:-right-6 z-[210] p-3 bg-white text-black border-4 border-black rounded-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:scale-110 active:scale-95 transition-all"
+        >
+          <X size={28} />
+        </button>
+
+        <div ref={detailRef} className="bg-white w-full rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col md:flex-row border-4 border-black">
+          <div className="flex-1 p-8 border-b md:border-b-0 md:border-r-4 border-black">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-16 h-16 rounded-2xl bg-blue-600 border-4 border-black flex items-center justify-center overflow-hidden shrink-0">
+                 <img src={merket.image || "https://pbs.twimg.com/media/G8bzt3JakAMwh2N?format=jpg&name=small"} className="w-full h-full object-cover" alt="Merket" />
+              </div>
+              <div>
+                <h2 className="text-3xl font-black text-black leading-tight uppercase italic">{merket.question}</h2>
+                <div className="flex items-center gap-3 mt-1 text-gray-500 font-bold text-sm">
+                  <span className="flex items-center gap-1"><Users size={14}/> {totalVotes} members voted</span>
+                  <span className="text-blue-600 font-black">{yesProb}% YES Confidence</span>
+                </div>
+              </div>
+            </div>
+
+            <MerketChart />
+
+            <div className="space-y-4">
+               <div className="bg-blue-50 p-4 rounded-2xl border-2 border-blue-100">
+                  <h4 className="font-black text-blue-600 text-xs uppercase mb-2 flex items-center gap-2">
+                      <Info size={14} /> Merket Analysis
+                  </h4>
+                  <p className="text-black font-bold italic">"{merket.description}"</p>
+               </div>
+               
+               <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-4 rounded-2xl border-2 border-gray-100">
+                      <span className="block text-[10px] font-black text-gray-400 uppercase">Oracle Chance</span>
+                      <span className="text-2xl font-black text-black">{yesProb}% YES</span>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-2xl border-2 border-gray-100">
+                      <span className="block text-[10px] font-black text-gray-400 uppercase">Integrity Score</span>
+                      <span className="text-2xl font-black text-green-500 uppercase italic">HIGH</span>
+                  </div>
+               </div>
+            </div>
           </div>
-      )}
 
-      <div className="mb-4">
-        <h3 className="text-xl font-black text-black leading-tight group-hover:text-blue-600 transition-colors flex justify-between items-start gap-2 uppercase">
-          {market.question}
-          {alreadyVoted && <CheckCircle2 className="text-blue-600 shrink-0" size={24} />}
-        </h3>
-      </div>
+          <div className="w-full md:w-80 bg-gray-50 p-8 flex flex-col">
+            <h3 className="font-black text-2xl uppercase italic tracking-tighter mb-8">VOTE MERKET</h3>
+            <p className="text-xs font-black text-gray-400 uppercase mb-6 leading-relaxed">
+              Choose your side. This merket records community consensus on the $PULY oracle.
+            </p>
 
-      <div className="flex gap-3 mb-4">
-        <button 
-            disabled={isDisabled || isCapturing}
-            onClick={() => handleVoteClick('YES')}
-            className={`flex-1 rounded-xl py-3 px-2 flex flex-col items-center transition-all border-2 font-black
-                ${alreadyVoted 
-                    ? 'bg-gray-100 border-gray-200 text-gray-400' 
-                    : 'bg-white hover:bg-blue-50 border-black text-black active:scale-95 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-1 hover:translate-y-1'
-                }
-            `}
-        >
-            <span className="text-xs mb-1">{alreadyVoted ? 'VOTED' : 'YES'}</span>
-            <span className="text-xl">{yesPercentage}%</span>
-        </button>
-        <button 
-            disabled={isDisabled || isCapturing}
-            onClick={() => handleVoteClick('NO')}
-            className={`flex-1 rounded-xl py-3 px-2 flex flex-col items-center transition-all border-2 font-black
-                ${alreadyVoted 
-                    ? 'bg-gray-100 border-gray-200 text-gray-400' 
-                    : 'bg-white hover:bg-red-50 border-black text-black active:scale-95 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-1 hover:translate-y-1'
-                }
-            `}
-        >
-            <span className="text-xs mb-1">{alreadyVoted ? 'VOTED' : 'NO'}</span>
-            <span className="text-xl">{noPercentage}%</span>
-        </button>
-      </div>
+            <div className="flex flex-col gap-4 mb-8">
+              <button 
+                  onClick={() => setSelectedOption('YES')}
+                  className={`w-full py-5 rounded-xl font-black transition-all border-4 ${selectedOption === 'YES' ? 'bg-green-500 text-white border-black scale-[1.02] shadow-lg' : 'bg-white text-green-600 border-gray-200 hover:border-green-300'}`}
+              >
+                  YES ({yesProb}%)
+              </button>
+              <button 
+                  onClick={() => setSelectedOption('NO')}
+                  className={`w-full py-5 rounded-xl font-black transition-all border-4 ${selectedOption === 'NO' ? 'bg-red-500 text-white border-black scale-[1.02] shadow-lg' : 'bg-white text-red-600 border-gray-200 hover:border-red-300'}`}
+              >
+                  NO ({100-yesProb}%)
+              </button>
+            </div>
 
-      <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden mb-4 border-2 border-black">
-        <div 
-            className={`h-full rounded-full transition-all duration-1000 ${alreadyVoted ? 'bg-blue-600' : 'bg-blue-500'}`}
-            style={{ width: `${yesPercentage}%` }}
-        />
-      </div>
+            <button 
+              disabled={(!selectedOption && !alreadyVoted) || isVoting}
+              onClick={handleTweetAction}
+              className="w-full bg-blue-600 text-white font-black py-5 rounded-full border-b-4 border-blue-900 shadow-xl hover:translate-y-0.5 transition-all flex flex-col items-center justify-center gap-1 group/btn"
+            >
+              {isVoting ? (
+                  <Loader2 className="animate-spin" />
+              ) : (
+                  <>
+                      <div className="flex items-center gap-2">
+                        <Share2 size={20} className="group-hover/btn:rotate-12 transition-transform" />
+                        TWEET MERKET
+                      </div>
+                      <span className="text-[10px] opacity-70 uppercase tracking-widest">Saves proof & Opens X</span>
+                  </>
+              )}
+            </button>
 
-      <div className="flex items-center justify-between text-sm text-black font-black uppercase italic">
-        <div className="flex items-center gap-1">
-            <Users size={16} />
-            <span>{totalVotes} Voters</span>
+            <div className="mt-auto pt-8">
+              <button onClick={downloadCard} className="w-full flex items-center justify-center gap-2 text-gray-400 hover:text-blue-600 font-black text-[10px] uppercase tracking-widest transition-colors">
+                  <Camera size={14} /> Download Merket Card
+              </button>
+            </div>
+          </div>
         </div>
-        
-        <button 
-            onClick={handleShare}
-            disabled={isCapturing}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full transition-all shadow-md transform hover:scale-105 active:scale-95 
-                ${isCapturing ? 'bg-gray-400 text-white' : 'bg-black text-white hover:bg-zinc-800'}
-            `}
-            title="Download & Post to X"
-        >
-            {isCapturing ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
-            <span className="text-xs">{isCapturing ? 'CAPTURING...' : 'TWEET IMAGE'}</span>
-        </button>
       </div>
     </div>
   );
 };
 
-const CreateMarketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubmit: (q: string) => void; isCreating: boolean }> = ({ isOpen, onClose, onSubmit, isCreating }) => {
+const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void; onVote: (id: string, option: 'YES' | 'NO') => void }> = ({ merket, onOpen, onVote }) => {
+  const totalVotes = merket.yesVotes + merket.noVotes;
+  const yesPercentage = totalVotes === 0 ? 50 : Math.round((merket.yesVotes / totalVotes) * 100);
+  const alreadyVoted = hasUserVoted(merket.id);
+
+  return (
+    <div className="bg-white border-4 border-black rounded-3xl p-6 shadow-2xl transition-all hover:shadow-[0_20px_40px_rgba(0,0,0,0.1)] flex flex-col">
+      <div className="flex items-start gap-4 mb-6">
+        <div className="w-14 h-14 rounded-2xl border-4 border-black bg-blue-600 overflow-hidden shrink-0 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <img src={merket.image || "https://pbs.twimg.com/media/G8bzt3JakAMwh2N?format=jpg&name=small"} className="w-full h-full object-cover" alt="Merket" />
+        </div>
+        <div className="flex-1">
+            <h3 className="text-xl font-black text-black leading-tight uppercase italic mb-1">
+              {merket.question}
+            </h3>
+            <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                <Users size={12} /> {totalVotes} Community Votes
+            </div>
+        </div>
+      </div>
+
+      <div className="mb-6">
+          <div className="flex justify-between items-end mb-2">
+            <span className="text-3xl font-black text-blue-600">{yesPercentage}% <span className="text-[10px] uppercase text-gray-400 tracking-widest">Yes</span></span>
+            <span className="text-3xl font-black text-red-500">{100-yesPercentage}% <span className="text-[10px] uppercase text-gray-400 tracking-widest">No</span></span>
+          </div>
+          <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden border-2 border-black flex">
+            <div className="h-full bg-blue-600 transition-all duration-1000" style={{ width: `${yesPercentage}%` }} />
+            <div className="h-full bg-red-500 transition-all duration-1000" style={{ width: `${100-yesPercentage}%` }} />
+          </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mb-6">
+          <button 
+            disabled={alreadyVoted}
+            onClick={(e) => { e.stopPropagation(); onVote(merket.id, 'YES'); }}
+            className="bg-green-100 text-green-700 font-black py-3 rounded-xl border-2 border-green-200 hover:border-green-500 hover:bg-green-200 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
+          >
+            YES
+          </button>
+          <button 
+            disabled={alreadyVoted}
+            onClick={(e) => { e.stopPropagation(); onVote(merket.id, 'NO'); }}
+            className="bg-red-100 text-red-700 font-black py-3 rounded-xl border-2 border-red-200 hover:border-red-500 hover:bg-red-200 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale"
+          >
+            NO
+          </button>
+      </div>
+
+      <button 
+        onClick={() => onOpen(merket)}
+        className="w-full py-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 text-gray-400 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-all group"
+      >
+        Open the Merket Detail <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
+      </button>
+    </div>
+  );
+};
+
+const CreateMerketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubmit: (q: string, img?: string) => void; isCreating: boolean }> = ({ isOpen, onClose, onSubmit, isCreating }) => {
     const [question, setQuestion] = useState('');
-    const MAX_LENGTH = 100;
+    const [imgBase64, setImgBase64] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onloadend = () => setImgBase64(reader.result as string);
+        reader.readAsDataURL(file);
+      }
+    };
+
+    const handlePaste = (e: React.ClipboardEvent) => {
+      const items = e.clipboardData.items;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+          const blob = items[i].getAsFile();
+          if (blob) {
+            const reader = new FileReader();
+            reader.onloadend = () => setImgBase64(reader.result as string);
+            reader.readAsDataURL(blob);
+          }
+        }
+      }
+    };
 
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-blue-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white border-4 border-black w-full max-w-md rounded-3xl p-8 shadow-[10px_10px_0px_0px_rgba(0,0,0,1)]">
-                <h2 className="text-3xl font-black text-black mb-1 uppercase italic">NEW PREDICTION</h2>
-                <p className="text-gray-600 mb-6 font-bold">The market awaits your wisdom.</p>
+            <div className="bg-white border-4 border-black w-full max-w-md rounded-3xl p-8 shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] relative" onPaste={handlePaste}>
+                <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-black transition-colors"><X size={24} /></button>
+                <h2 className="text-3xl font-black text-black mb-6 uppercase italic tracking-tighter">NEW MERKET</h2>
                 
-                <div className="mb-6">
-                    <textarea 
-                        className="w-full bg-blue-50 border-4 border-black rounded-2xl p-4 text-black font-bold focus:outline-none focus:ring-4 focus:ring-blue-400 transition-all placeholder:text-gray-400 resize-none"
-                        rows={3}
-                        placeholder="Ask the oracle... (e.g., Will $PULY reach $100M?)"
-                        value={question}
-                        maxLength={MAX_LENGTH}
-                        onChange={(e) => setQuestion(e.target.value)}
-                        disabled={isCreating}
-                    />
-                    <div className="flex justify-end mt-2">
-                        <span className={`text-xs font-black ${question.length === MAX_LENGTH ? 'text-red-500' : 'text-black'}`}>
-                            {question.length}/{MAX_LENGTH}
-                        </span>
+                <div className="space-y-4 mb-8">
+                    <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">Question</label>
+                        <textarea 
+                            className="w-full bg-blue-50 border-4 border-black rounded-2xl p-4 text-black font-bold focus:outline-none focus:ring-4 focus:ring-blue-400 transition-all resize-none"
+                            rows={3}
+                            placeholder="e.g. Will $PULY flip the merket by Monday?"
+                            value={question}
+                            onChange={(e) => setQuestion(e.target.value)}
+                            disabled={isCreating}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">Merket Image (Upload or Paste)</label>
+                        <div 
+                          onClick={() => fileInputRef.current?.click()}
+                          className="w-full h-32 border-4 border-black border-dashed rounded-2xl bg-blue-50 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-100 transition-colors relative overflow-hidden"
+                        >
+                            {imgBase64 ? (
+                              <img src={imgBase64} className="w-full h-full object-cover" alt="Preview" />
+                            ) : (
+                              <>
+                                <Upload size={32} className="text-blue-600 mb-2" />
+                                <span className="text-[10px] font-black uppercase text-blue-600">Click, Drop, or Paste Image</span>
+                              </>
+                            )}
+                        </div>
+                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                     </div>
                 </div>
 
                 <div className="flex justify-end gap-4">
-                    <button onClick={onClose} disabled={isCreating} className="px-6 py-2 text-black font-black uppercase hover:underline transition-colors">Abort</button>
+                    <button onClick={onClose} disabled={isCreating} className="px-6 py-2 text-black font-black uppercase hover:underline">Abort</button>
                     <button 
                         disabled={!question.trim() || isCreating}
-                        onClick={() => {
-                            onSubmit(question);
-                            setQuestion('');
-                        }} 
-                        className="bg-blue-600 text-white font-black px-10 py-3 rounded-full hover:bg-blue-700 disabled:opacity-50 shadow-lg transition-all flex items-center gap-2 border-b-4 border-blue-900"
+                        onClick={() => onSubmit(question, imgBase64 || '')} 
+                        className="bg-blue-600 text-white font-black px-10 py-3 rounded-full hover:bg-blue-700 shadow-lg border-b-4 border-blue-900"
                     >
-                        {isCreating && <Loader2 size={18} className="animate-spin" />}
-                        {isCreating ? 'PROCESSING' : 'LAUNCH'}
+                        {isCreating ? <Loader2 size={18} className="animate-spin" /> : 'LAUNCH MERKET'}
                     </button>
                 </div>
             </div>
@@ -205,102 +316,99 @@ const CreateMarketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubm
     );
 }
 
-const PredictionMarket: React.FC = () => {
-  const [markets, setMarkets] = useState<MarketType[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+const PredictionMerket: React.FC = () => {
+  const [merkets, setMerkets] = useState<MerketType[]>([]);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedMerket, setSelectedMerket] = useState<MerketType | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
   const fetchData = async () => {
     try {
-        const data = await getMarkets();
-        setMarkets(data);
-    } catch (e) {
-        console.error("Failed to fetch markets", e);
-    } finally {
-        setLoading(false);
-    }
+        const data = await getMerkets();
+        setMerkets(data);
+        const hash = window.location.hash;
+        // Use shorter hash trigger
+        if (hash.startsWith('#m-')) {
+            const merketId = hash.replace('#m-', '');
+            const target = data.find(m => m.id === merketId);
+            if (target) setSelectedMerket(target);
+        }
+    } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const handleVote = async (id: string, option: 'YES' | 'NO') => {
-    try {
-        setActionLoading(true);
-        await voteMarket(id, option); 
-        await fetchData();
-    } catch (error) {
-        console.error("Vote failed:", error);
-    } finally {
-        setActionLoading(false);
-    }
+    setActionLoading(true);
+    await voteMerket(id, option); 
+    const updated = await getMerkets();
+    setMerkets(updated);
+    const current = updated.find(m => m.id === id);
+    if (current) setSelectedMerket(current);
+    setActionLoading(false);
   };
 
-  const handleCreate = async (question: string) => {
+  const handleCreate = async (q: string, img?: string) => {
     setActionLoading(true);
-    await createMarket(question);
+    await createMerket(q, img);
     await fetchData();
     setActionLoading(false);
-    setIsModalOpen(false);
+    setIsCreateOpen(false);
+  };
+
+  const closeMerket = () => {
+    setSelectedMerket(null);
+    window.history.pushState(null, "", window.location.pathname + window.location.search);
   };
 
   return (
     <section className="py-24 bg-blue-600/20 backdrop-blur-sm">
       <div className="container mx-auto px-4">
-        
-        <div className="flex flex-col md:flex-row justify-between items-center mb-16 gap-6 text-center md:text-left">
-            <div>
-                <h2 className="text-5xl md:text-7xl font-black text-white mb-4 flex items-center justify-center md:justify-start gap-4 tracking-tighter text-outline italic uppercase">
-                    <TrendingUp size={48} />
-                    LIVE PULY MERKETS
+        <div className="flex flex-col md:flex-row justify-between items-center mb-16 gap-6">
+            <div className="text-center md:text-left">
+                <h2 className="text-5xl md:text-7xl font-black text-white flex items-center gap-4 tracking-tighter text-outline italic uppercase mb-2">
+                    <BarChart3 size={48} /> LIVE MERKETS
                 </h2>
-                <div className="flex items-center justify-center md:justify-start gap-3">
-                    <p className="text-white text-2xl font-black drop-shadow-md uppercase italic">Vote or vanish. $pulymerket logic.</p>
-                </div>
+                <p className="text-white/60 font-black uppercase tracking-[0.2em] text-xs italic">
+                    Free Community Merket Oracle v1.0
+                </p>
             </div>
-            
-            <button 
-                onClick={() => setIsModalOpen(true)}
-                className="flex items-center gap-3 bg-white text-blue-600 px-10 py-4 rounded-full transition-all shadow-2xl font-black text-xl border-b-4 border-gray-300 hover:scale-105 active:scale-95"
-            >
-                <Plus size={24} strokeWidth={3} />
-                CREATE MARKET
+            <button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-3 bg-white text-blue-600 px-10 py-4 rounded-full shadow-2xl font-black text-xl border-b-4 border-gray-300 hover:scale-105 active:scale-95 transition-all">
+                <Plus size={24} /> NEW MERKET
             </button>
         </div>
 
         {loading ? (
-            <div className="flex justify-center py-20">
-                <Loader2 className="text-white animate-spin" size={64} />
-            </div>
-        ) : markets.length === 0 ? (
-            <div className="text-center py-32 bg-white/10 rounded-3xl border-4 border-dashed border-white/30">
-                <p className="text-3xl text-white font-black uppercase italic mb-4">No markets found.</p>
-                <p className="text-white/70 font-bold">Be the first to challenge the future!</p>
-            </div>
+            <div className="flex justify-center py-20"><Loader2 className="text-white animate-spin" size={64} /></div>
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {markets.map(market => (
-                    <MarketCard 
-                        key={market.id} 
-                        market={market} 
+                {merkets.map(m => (
+                    <MerketCard 
+                        key={m.id} 
+                        merket={m} 
+                        onOpen={(target) => { 
+                            setSelectedMerket(target);
+                            window.location.hash = `m-${target.id}`; 
+                        }} 
                         onVote={handleVote} 
-                        isVoting={actionLoading}
                     />
                 ))}
             </div>
         )}
-
       </div>
-      <CreateMarketModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSubmit={handleCreate}
-        isCreating={actionLoading} 
-      />
+
+      <CreateMerketModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} onSubmit={handleCreate} isCreating={actionLoading} />
+      {selectedMerket && (
+        <MerketDetailModal 
+            merket={selectedMerket} 
+            onClose={closeMerket} 
+            onVote={handleVote} 
+            isVoting={actionLoading} 
+        />
+      )}
     </section>
   );
 };
 
-export default PredictionMarket;
+export default PredictionMerket;

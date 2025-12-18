@@ -2,12 +2,11 @@
 import React from 'react';
 import Header from './components/Header';
 import Hero from './components/Hero';
-import PredictionMarket from './components/PredictionMarket';
+import PredictionMerket from './components/PredictionMarket';
 import { ShieldCheck, Skull, TrendingUp, BarChart3, Globe } from 'lucide-react';
 
 const AboutSection = () => (
   <section className="py-24 bg-white text-blue-600 relative overflow-hidden">
-    {/* Decorative Background Elements */}
     <div className="absolute top-0 right-0 p-20 opacity-5 pointer-events-none">
         <Globe size={400} />
     </div>
@@ -29,10 +28,10 @@ const AboutSection = () => (
             Since 2024, out of 7 million tokens issued, a staggering <span className="text-red-600 font-black">98.6%</span> were rug pulls or pump-and-dump schemes.
           </p>
           <p className="border-l-8 border-blue-600 pl-6 italic bg-blue-50 py-4 rounded-r-2xl">
-            "The market is rotating away from pure speculation and toward platforms with actual utility."
+            "The merket is rotating away from pure speculation and toward platforms with actual utility."
           </p>
           <p>
-            While memecoin attention collapsed by 90%, Prediction Markets exploded. 
+            While memecoin attention collapsed by 90%, Prediction Merkets exploded. 
             Polymarket crossed <span className="text-blue-800">$9 Billion</span> in volume. Kalshi reached an <span className="text-blue-800">$11 Billion</span> valuation.
           </p>
         </div>
@@ -49,7 +48,7 @@ const AboutSection = () => (
           <ul className="space-y-4">
             <li className="flex gap-3 items-start">
                <ShieldCheck className="shrink-0 mt-1" />
-               <span>AI-Powered confidence scoring for every market.</span>
+               <span>AI-Powered confidence scoring for every merket.</span>
             </li>
             <li className="flex gap-3 items-start">
                <TrendingUp className="shrink-0 mt-1" />
@@ -82,13 +81,9 @@ function App() {
       <Header />
       <main>
         <Hero />
-        
-        {/* About Section */}
         <AboutSection />
-        
-        {/* Prediction Market Section */}
-        <div id="markets">
-          <PredictionMarket />
+        <div id="merkets">
+          <PredictionMerket />
         </div>
       </main>
       
@@ -103,9 +98,8 @@ function App() {
             <p className="mb-2 font-black uppercase tracking-widest text-sm italic">© 2025 THE LAST ORACLE STANDING</p>
             <p className="text-xs opacity-70 mb-6 max-w-sm mx-auto">
               Warning: 97% of memecoins will be dead by next month. 
-              $pulymerket is building for the future of prediction markets.
+              $pulymerket is building for the future of prediction merkets.
             </p>
-            
             <div className="flex justify-center items-center gap-2 pt-4 border-t border-white/10 w-full max-w-xs mx-auto">
                 <span className="text-sm font-bold text-white/60 uppercase tracking-widest">Survivor Protocol v1.0</span>
             </div>

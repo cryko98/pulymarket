@@ -1,37 +1,48 @@
 
-import { PredictionMarket } from '../types';
+import { PredictionMerket } from '../types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 const STORAGE_KEY = 'puly_merket_data';
 const USER_VOTES_KEY = 'puly_user_votes';
 
-const SEED_DATA: PredictionMarket[] = [
+const FUNNY_INSIGHTS = [
+  "Oracle status: High on digital incense.",
+  "Whale alerted: Someone just bet their reputation on this.",
+  "Merket sentiment: Pure hopium and 0.5% logic.",
+  "Industry standard prediction. 97% of jeets will get this wrong.",
+  "Data source: A dream the dev had after drinking 4 energy drinks.",
+  "Confidence score: Trust me bro.",
+  "Probability of moon: Highly likely if you don't sell your soul."
+];
+
+const SEED_DATA: PredictionMerket[] = [
   {
     id: 'puly-1',
-    question: 'Will $pulymerket reach 100M Market Cap by April?',
+    question: 'Will $pulymerket reach 100M Merket Cap by April?',
     yesVotes: 420,
     noVotes: 69,
-    totalVolume: 50000,
     createdAt: Date.now(),
+    image: 'https://pbs.twimg.com/media/G8bzt3JakAMwh2N?format=jpg&name=small',
+    description: "The ultimate test of faith. If you believe, the chart will follow."
   }
 ];
 
-export const hasUserVoted = (marketId: string): boolean => {
+export const hasUserVoted = (merketId: string): boolean => {
   try {
     const stored = localStorage.getItem(USER_VOTES_KEY);
     const votes = stored ? JSON.parse(stored) : [];
-    return votes.includes(marketId);
+    return votes.includes(merketId);
   } catch (e) {
     return false;
   }
 };
 
-const markUserAsVoted = (marketId: string) => {
+const markUserAsVoted = (merketId: string) => {
   try {
     const stored = localStorage.getItem(USER_VOTES_KEY);
     const votes = stored ? JSON.parse(stored) : [];
-    if (!votes.includes(marketId)) {
-      votes.push(marketId);
+    if (!votes.includes(merketId)) {
+      votes.push(merketId);
       localStorage.setItem(USER_VOTES_KEY, JSON.stringify(votes));
     }
   } catch (e) {
@@ -39,7 +50,7 @@ const markUserAsVoted = (marketId: string) => {
   }
 };
 
-export const getMarkets = async (): Promise<PredictionMarket[]> => {
+export const getMerkets = async (): Promise<PredictionMerket[]> => {
   if (isSupabaseConfigured() && supabase) {
     const { data, error } = await supabase
       .from('markets')
@@ -56,8 +67,9 @@ export const getMarkets = async (): Promise<PredictionMarket[]> => {
       question: item.question,
       yesVotes: parseInt(item.yes_votes || 0),
       noVotes: parseInt(item.no_votes || 0),
-      totalVolume: parseFloat(item.total_volume || 0),
       createdAt: new Date(item.created_at).getTime(),
+      image: item.image,
+      description: item.description || FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)]
     }));
   }
 
@@ -69,7 +81,9 @@ export const getMarkets = async (): Promise<PredictionMarket[]> => {
   return JSON.parse(stored);
 };
 
-export const createMarket = async (question: string): Promise<void> => {
+export const createMerket = async (question: string, imageUrl?: string): Promise<void> => {
+  const description = FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)];
+  
   if (isSupabaseConfigured() && supabase) {
     const { error } = await supabase
       .from('markets')
@@ -77,7 +91,8 @@ export const createMarket = async (question: string): Promise<void> => {
         question, 
         yes_votes: 0, 
         no_votes: 0, 
-        total_volume: 0 
+        image: imageUrl,
+        description: description
       }]);
     
     if (error) console.error("Create error:", error);
@@ -85,19 +100,20 @@ export const createMarket = async (question: string): Promise<void> => {
   }
 
   const stored = localStorage.getItem(STORAGE_KEY);
-  const markets = stored ? JSON.parse(stored) : SEED_DATA;
-  const newMarket: PredictionMarket = {
+  const merkets = stored ? JSON.parse(stored) : SEED_DATA;
+  const newMerket: PredictionMerket = {
     id: crypto.randomUUID(),
     question,
     yesVotes: 0,
     noVotes: 0,
-    totalVolume: 0,
     createdAt: Date.now(),
+    image: imageUrl,
+    description: description
   };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([newMarket, ...markets]));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify([newMerket, ...merkets]));
 };
 
-export const voteMarket = async (id: string, option: 'YES' | 'NO'): Promise<void> => {
+export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void> => {
   if (hasUserVoted(id)) return;
 
   if (isSupabaseConfigured() && supabase) {
@@ -125,8 +141,8 @@ export const voteMarket = async (id: string, option: 'YES' | 'NO'): Promise<void
   }
 
   const stored = localStorage.getItem(STORAGE_KEY);
-  const markets = stored ? JSON.parse(stored) : SEED_DATA;
-  const updated = markets.map((m: any) => {
+  const merkets = stored ? JSON.parse(stored) : SEED_DATA;
+  const updated = merkets.map((m: any) => {
     if (m.id === id) {
       return {
         ...m,
