@@ -6,7 +6,15 @@ export interface PredictionMerket {
   noVotes: number;
   createdAt: number;
   image?: string;
-  description?: string; // For funny mock text
+  description?: string;
+}
+
+export interface MerketComment {
+  id: string;
+  market_id: string;
+  username: string;
+  content: string;
+  created_at: string;
 }
 
 export type VoteOption = 'YES' | 'NO';
