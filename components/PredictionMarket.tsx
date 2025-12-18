@@ -7,7 +7,7 @@ import html2canvas from 'html2canvas';
 
 // --- MOCK CHART COMPONENT ---
 const MerketChart = () => (
-  <div className="w-full h-48 relative overflow-hidden bg-blue-50/50 rounded-xl border border-blue-100 mb-6 group">
+  <div className="w-full h-48 relative overflow-hidden bg-blue-50/50 rounded-xl border border-blue-100 mb-6 group text-black">
     <svg className="w-full h-full" viewBox="0 0 400 200">
       <path 
         d="M0,150 Q50,140 100,160 T200,80 T300,120 T400,40" 
@@ -57,23 +57,26 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
     } catch (e) { console.error("Image generation failed", e); }
   };
 
-  const handleTweetAction = async () => {
+  const handleTweetAction = () => {
     if (selectedOption && !alreadyVoted) {
         onVote(merket.id, selectedOption);
     }
 
-    // Download the image proof as requested
-    await downloadCard();
+    // Trigger image download proof
+    downloadCard();
 
-    // Prepare Tweet
-    const baseUrl = window.location.origin + window.location.pathname;
-    // Clean deep link to the specific merket
-    const shortLink = `${baseUrl.split('#')[0]}#m-${merket.id}`;
+    // Short link configuration using pulymerket.com domain
+    const shortLink = `https://pulymerket.com/#m-${merket.id}`;
     
-    const sentiment = selectedOption === 'YES' ? "BULLISH 🟢" : (selectedOption === 'NO' ? "BEARISH 🔴" : "PREDICTING... 🔮");
-    const tweetText = `Merket Check: "${merket.question}"\n\nCommunity: ${yesProb}% YES\nMy Verdict: ${sentiment}\n\nCast your vote here:\n${shortLink}\n\n$PULY`;
+    const sentiment = selectedOption === 'YES' ? "BULLISH 🟢" : (selectedOption === 'NO' ? "BEARISH 🔴" : "WATCHING 🔮");
     
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}`, '_blank');
+    // Updated text with $pulymerket ticker
+    const tweetText = `Merket Check: "${merket.question}"\n\nSentiment: ${yesProb}% YES\nMy Verdict: ${sentiment}\n\nJoin the merket:\n${shortLink}\n\n$pulymerket`;
+    
+    const xIntentUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
+    
+    // Open X in new tab
+    window.open(xIntentUrl, '_blank');
   };
 
   return (
@@ -81,7 +84,8 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
       <div className="relative w-full max-w-4xl">
         <button 
           onClick={onClose} 
-          className="absolute -top-12 md:-top-6 md:-right-6 z-[210] p-3 bg-white text-black border-4 border-black rounded-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:scale-110 active:scale-95 transition-all"
+          className="absolute -top-12 md:-top-6 md:-right-6 z-[210] p-3 bg-white text-black border-4 border-black rounded-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:scale-110 active:scale-95 transition-all flex items-center justify-center"
+          title="Close"
         >
           <X size={28} />
         </button>
@@ -92,10 +96,10 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
               <div className="w-16 h-16 rounded-2xl bg-blue-600 border-4 border-black flex items-center justify-center overflow-hidden shrink-0">
                  <img src={merket.image || "https://pbs.twimg.com/media/G8bzt3JakAMwh2N?format=jpg&name=small"} className="w-full h-full object-cover" alt="Merket" />
               </div>
-              <div>
-                <h2 className="text-3xl font-black text-black leading-tight uppercase italic">{merket.question}</h2>
+              <div className="text-black">
+                <h2 className="text-3xl font-black leading-tight uppercase italic">{merket.question}</h2>
                 <div className="flex items-center gap-3 mt-1 text-gray-500 font-bold text-sm">
-                  <span className="flex items-center gap-1"><Users size={14}/> {totalVotes} members voted</span>
+                  <span className="flex items-center gap-1 text-black"><Users size={14}/> {totalVotes} members voted</span>
                   <span className="text-blue-600 font-black">{yesProb}% YES Confidence</span>
                 </div>
               </div>
@@ -125,11 +129,8 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
           </div>
 
           <div className="w-full md:w-80 bg-gray-50 p-8 flex flex-col">
-            <h3 className="font-black text-2xl uppercase italic tracking-tighter mb-8">VOTE MERKET</h3>
-            <p className="text-xs font-black text-gray-400 uppercase mb-6 leading-relaxed">
-              Choose your side. This merket records community consensus on the $PULY oracle.
-            </p>
-
+            <h3 className="font-black text-2xl uppercase italic tracking-tighter mb-8 text-black">VOTE MERKET</h3>
+            
             <div className="flex flex-col gap-4 mb-8">
               <button 
                   onClick={() => setSelectedOption('YES')}
@@ -151,7 +152,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
               className="w-full bg-blue-600 text-white font-black py-5 rounded-full border-b-4 border-blue-900 shadow-xl hover:translate-y-0.5 transition-all flex flex-col items-center justify-center gap-1 group/btn"
             >
               {isVoting ? (
-                  <Loader2 className="animate-spin" />
+                  <Loader2 className="animate-spin text-white" />
               ) : (
                   <>
                       <div className="flex items-center gap-2">
@@ -181,7 +182,10 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
   const alreadyVoted = hasUserVoted(merket.id);
 
   return (
-    <div className="bg-white border-4 border-black rounded-3xl p-6 shadow-2xl transition-all hover:shadow-[0_20px_40px_rgba(0,0,0,0.1)] flex flex-col">
+    <div 
+      onClick={() => onOpen(merket)}
+      className="bg-white border-4 border-black rounded-3xl p-6 shadow-2xl transition-all hover:shadow-[0_20px_40px_rgba(0,0,0,0.1)] hover:-translate-y-1 cursor-pointer flex flex-col group"
+    >
       <div className="flex items-start gap-4 mb-6">
         <div className="w-14 h-14 rounded-2xl border-4 border-black bg-blue-600 overflow-hidden shrink-0 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
             <img src={merket.image || "https://pbs.twimg.com/media/G8bzt3JakAMwh2N?format=jpg&name=small"} className="w-full h-full object-cover" alt="Merket" />
@@ -224,12 +228,9 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
           </button>
       </div>
 
-      <button 
-        onClick={() => onOpen(merket)}
-        className="w-full py-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 text-gray-400 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-all group"
-      >
-        Open the Merket Detail <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-      </button>
+      <div className="w-full py-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 text-gray-400 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 group-hover:bg-blue-50 group-hover:border-blue-300 group-hover:text-blue-600 transition-all">
+        Open Merket Detail <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
+      </div>
     </div>
   );
 };
@@ -276,7 +277,7 @@ const CreateMerketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubm
                         <textarea 
                             className="w-full bg-blue-50 border-4 border-black rounded-2xl p-4 text-black font-bold focus:outline-none focus:ring-4 focus:ring-blue-400 transition-all resize-none"
                             rows={3}
-                            placeholder="e.g. Will $PULY flip the merket by Monday?"
+                            placeholder="e.g. Will $pulymerket flip the cap by Monday?"
                             value={question}
                             onChange={(e) => setQuestion(e.target.value)}
                             disabled={isCreating}
@@ -293,7 +294,7 @@ const CreateMerketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubm
                             ) : (
                               <>
                                 <Upload size={32} className="text-blue-600 mb-2" />
-                                <span className="text-[10px] font-black uppercase text-blue-600">Click, Drop, or Paste Image</span>
+                                <span className="text-[10px] font-black uppercase text-blue-600">Click to Upload or Paste Image</span>
                               </>
                             )}
                         </div>
@@ -328,7 +329,6 @@ const PredictionMerket: React.FC = () => {
         const data = await getMerkets();
         setMerkets(data);
         const hash = window.location.hash;
-        // Use shorter hash trigger
         if (hash.startsWith('#m-')) {
             const merketId = hash.replace('#m-', '');
             const target = data.find(m => m.id === merketId);
@@ -363,7 +363,7 @@ const PredictionMerket: React.FC = () => {
   };
 
   return (
-    <section className="py-24 bg-blue-600/20 backdrop-blur-sm">
+    <section className="py-24 bg-blue-600/20 backdrop-blur-sm" id="merkets">
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row justify-between items-center mb-16 gap-6">
             <div className="text-center md:text-left">
