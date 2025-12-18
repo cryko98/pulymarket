@@ -52,9 +52,10 @@ const markUserAsVoted = (merketId: string) => {
 
 export const getMerkets = async (): Promise<PredictionMerket[]> => {
   if (isSupabaseConfigured() && supabase) {
+    // We select only known core columns to avoid schema cache issues with 'description'
     const { data, error } = await supabase
       .from('markets')
-      .select('*')
+      .select('id, question, yes_votes, no_votes, created_at, image')
       .order('created_at', { ascending: false });
     
     if (error) {
@@ -69,18 +70,17 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
       noVotes: parseInt(item.no_votes || 0),
       createdAt: new Date(item.created_at).getTime(),
       image: item.image,
+      // Fallback to funny insights locally to avoid needing the DB column
       description: item.description || FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)]
     }));
   }
 
   const stored = localStorage.getItem(STORAGE_KEY);
   if (!stored) {
-    // Return seed if nothing exists
     return SEED_DATA;
   }
   try {
     const parsed = JSON.parse(stored);
-    // Merge seed with stored to ensure the first one always exists
     const merged = [...parsed];
     if (!merged.find(m => m.id === 'puly-1')) merged.push(SEED_DATA[0]);
     return merged;
@@ -90,20 +90,21 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
 };
 
 export const createMerket = async (question: string, imageUrl?: string): Promise<void> => {
-  const description = FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)];
-  
   if (isSupabaseConfigured() && supabase) {
+    // Removed 'description' from insert to ensure it works with standard tables
     const { error } = await supabase
       .from('markets')
       .insert([{ 
         question, 
         yes_votes: 0, 
         no_votes: 0, 
-        image: imageUrl,
-        description: description
+        image: imageUrl
       }]);
     
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.error("Supabase Insert Error:", error);
+      throw new Error(error.message);
+    }
     return;
   }
 
@@ -122,13 +123,12 @@ export const createMerket = async (question: string, imageUrl?: string): Promise
     noVotes: 0,
     createdAt: Date.now(),
     image: imageUrl,
-    description: description
+    description: FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)]
   };
 
   try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify([newMerket, ...merkets]));
   } catch (e) {
-      // Typically QuotaExceededError if image is too large
       console.error("Storage error", e);
       throw new Error("Image too large or storage full! Try a smaller image.");
   }
@@ -145,7 +145,7 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void
       });
       
       if (rpcError) {
-        const { data: current } = await supabase.from('markets').select('*').eq('id', id).single();
+        const { data: current } = await supabase.from('markets').select('id, yes_votes, no_votes').eq('id', id).single();
         if (current) {
           const updates = {
             yes_votes: option === 'YES' ? current.yes_votes + 1 : current.yes_votes,
