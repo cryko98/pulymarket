@@ -1,9 +1,9 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import PredictionMerket from './components/PredictionMarket';
-import { ShieldCheck, Skull, TrendingUp, BarChart3, Globe } from 'lucide-react';
+import { ShieldCheck, Skull, TrendingUp, BarChart3, Globe, ArrowLeft } from 'lucide-react';
 
 const AboutSection = () => (
   <section className="py-24 bg-white text-blue-600 relative overflow-hidden">
@@ -76,18 +76,46 @@ const AboutSection = () => (
 );
 
 function App() {
+  const [view, setView] = useState<'landing' | 'app'>('landing');
+
+  // Handle back button on mobile/browser
+  useEffect(() => {
+    const handleHash = () => {
+      if (window.location.hash.startsWith('#merket-')) {
+        setView('app');
+      }
+    };
+    window.addEventListener('hashchange', handleHash);
+    handleHash(); // Check on mount
+    return () => window.removeEventListener('hashchange', handleHash);
+  }, []);
+
   return (
     <div className="min-h-screen text-white font-sans selection:bg-white selection:text-blue-600">
-      <Header />
-      <main>
-        <Hero />
-        <AboutSection />
-        <div id="merkets">
-          <PredictionMerket />
-        </div>
+      <Header onLogoClick={() => setView('landing')} />
+      
+      <main className="transition-all duration-500">
+        {view === 'landing' ? (
+          <>
+            <Hero onStart={() => setView('app')} />
+            <AboutSection />
+          </>
+        ) : (
+          <div className="pt-20 min-h-screen bg-blue-700">
+            <div className="container mx-auto px-4 py-6">
+                <button 
+                  onClick={() => setView('landing')}
+                  className="flex items-center gap-2 text-white/70 hover:text-white font-black uppercase italic tracking-widest text-sm mb-10 transition-colors"
+                >
+                   <ArrowLeft size={16} /> Back to Terminal
+                </button>
+                <PredictionMerket />
+            </div>
+          </div>
+        )}
       </main>
       
-      <footer className="border-t border-white/20 py-12 bg-blue-900/40 mt-10 backdrop-blur-sm">
+      <footer className="border-t border-white/20 py-12 bg-blue-900/40 backdrop-blur-sm">
         <div className="container mx-auto px-4 text-center text-white/80">
             <div className="flex justify-center items-center gap-2 mb-4">
                 <div className="w-10 h-10 rounded-full border-2 border-white overflow-hidden bg-blue-600 shadow-md">

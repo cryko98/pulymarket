@@ -55,6 +55,7 @@ const markUserAsVoted = (merketId: string) => {
 export const getMerkets = async (): Promise<PredictionMerket[]> => {
   if (isSupabaseConfigured() && supabase) {
     try {
+      // Explicitly select the image column
       const { data, error } = await supabase
         .from('markets')
         .select('id, question, yes_votes, no_votes, created_at, image')
@@ -157,8 +158,8 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void
         const { data: current } = await supabase.from('markets').select('id, yes_votes, no_votes').eq('id', id).single();
         if (current) {
           const updates = {
-            yes_votes: option === 'YES' ? (current.yes_votes || 0) + 1 : current.yes_votes,
-            no_votes: option === 'NO' ? (current.no_votes || 0) + 1 : current.no_votes,
+            yes_votes: option === 'YES' ? (current.yes_votes || 0) + 1 : (current.yes_votes || 0),
+            no_votes: option === 'NO' ? (current.no_votes || 0) + 1 : (current.no_votes || 0),
           };
           await supabase.from('markets').update(updates).eq('id', id);
         }

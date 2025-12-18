@@ -2,7 +2,11 @@
 import React, { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  onLogoClick?: () => void;
+}
+
+const Header: React.FC<HeaderProps> = ({ onLogoClick }) => {
   const [copied, setCopied] = useState(false);
   const ca = "C1JSieeYSvMZpq8oRioJWgxuSHwBo2ahgwcejFEvpump";
   const logoUrl = "https://pbs.twimg.com/media/G8bzt3JakAMwh2N?format=jpg&name=small";
@@ -18,7 +22,7 @@ const Header: React.FC = () => {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         
         {/* Logo & Name */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 cursor-pointer" onClick={onLogoClick}>
             <div className="w-10 h-10 rounded-full border-2 border-white overflow-hidden shadow-lg bg-blue-600">
                 <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
             </div>

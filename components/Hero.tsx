@@ -1,7 +1,11 @@
 
 import React from 'react';
 
-const Hero: React.FC = () => {
+interface HeroProps {
+  onStart: () => void;
+}
+
+const Hero: React.FC<HeroProps> = ({ onStart }) => {
   const logoUrl = "https://pbs.twimg.com/media/G8bzt3JakAMwh2N?format=jpg&name=small";
 
   return (
@@ -38,7 +42,7 @@ const Hero: React.FC = () => {
           <div className="flex flex-col items-center gap-6 w-full">
             <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto justify-center">
                 <button 
-                  onClick={() => document.getElementById('merkets')?.scrollIntoView({ behavior: 'smooth' })}
+                  onClick={onStart}
                   className="bg-white text-blue-600 font-black text-xl px-12 py-4 rounded-full hover:bg-gray-100 transition-all shadow-xl hover:scale-105 active:scale-95 border-b-4 border-gray-300"
                 >
                     Start Predicting
