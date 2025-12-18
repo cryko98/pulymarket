@@ -54,49 +54,42 @@ const markUserAsVoted = (merketId: string) => {
 
 export const getMerkets = async (): Promise<PredictionMerket[]> => {
   if (isSupabaseConfigured() && supabase) {
-    const { data, error } = await supabase
-      .from('markets')
-      .select('id, question, yes_votes, no_votes, created_at, image')
-      .order('created_at', { ascending: false });
-    
-    if (error) {
-      console.error("Supabase error:", error);
-      // Fallback to local storage if DB fetch fails
-    } else if (data) {
-      return data.map((item: any) => ({
-        id: item.id.toString(),
-        question: item.question,
-        yesVotes: parseInt(item.yes_votes || 0),
-        noVotes: parseInt(item.no_votes || 0),
-        createdAt: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
-        image: item.image,
-        description: FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)]
-      }));
+    try {
+      const { data, error } = await supabase
+        .from('markets')
+        .select('id, question, yes_votes, no_votes, created_at, image')
+        .order('created_at', { ascending: false });
+      
+      if (!error && data) {
+        return data.map((item: any) => ({
+          id: item.id.toString(),
+          question: item.question,
+          yesVotes: parseInt(item.yes_votes || 0),
+          noVotes: parseInt(item.no_votes || 0),
+          createdAt: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
+          image: item.image,
+          description: FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)]
+        }));
+      } else if (error) {
+        console.warn("Supabase fetch failed, falling back to local storage.", error.message);
+      }
+    } catch (err) {
+      console.warn("Supabase connection error, falling back to local storage.");
     }
   }
 
-  // Local Storage Logic (Fallback or Primary)
+  // Local Storage Fallback
   const stored = localStorage.getItem(STORAGE_KEY);
   let localData: PredictionMerket[] = [];
-  
   if (stored) {
     try {
       const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed)) {
-        localData = parsed;
-      }
-    } catch (e) {
-      console.error("Failed to parse local merkets", e);
-    }
+      if (Array.isArray(parsed)) localData = parsed;
+    } catch (e) { console.error(e); }
   }
 
-  // Ensure seed data is present
   const seed = SEED_DATA[0];
-  if (!localData.find(m => m.id === seed.id)) {
-    localData.push(seed);
-  }
-
-  // Sort by date desc
+  if (!localData.find(m => m.id === seed.id)) localData.push(seed);
   return localData.sort((a, b) => b.createdAt - a.createdAt);
 };
 
@@ -104,20 +97,25 @@ export const createMerket = async (question: string, imageUrl?: string): Promise
   if (!question.trim()) throw new Error("Question cannot be empty");
 
   if (isSupabaseConfigured() && supabase) {
-    const { error } = await supabase
-      .from('markets')
-      .insert([{ 
-        question, 
-        yes_votes: 0, 
-        no_votes: 0, 
-        image: imageUrl
-      }]);
-    
-    if (error) {
-      console.error("Supabase Insert Error:", error);
-      throw new Error(error.message);
+    try {
+      const { error } = await supabase
+        .from('markets')
+        .insert([{ 
+          question: question.trim(), 
+          yes_votes: 0, 
+          no_votes: 0, 
+          image: imageUrl 
+        }]);
+      
+      if (error) {
+        console.error("Supabase insert error details:", error);
+        throw new Error(`Database error: ${error.message}. Did you run the SQL setup?`);
+      }
+      return;
+    } catch (err: any) {
+      if (err.message?.includes("Database error")) throw err;
+      console.warn("Supabase insert failed, using local storage instead.");
     }
-    return;
   }
 
   // Local Storage Path
@@ -126,9 +124,7 @@ export const createMerket = async (question: string, imageUrl?: string): Promise
   try {
       const parsed = stored ? JSON.parse(stored) : [];
       merkets = Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
-      merkets = [];
-  }
+  } catch (e) { merkets = []; }
 
   const newMerket: PredictionMerket = {
     id: `local-${crypto.randomUUID()}`,
@@ -141,11 +137,9 @@ export const createMerket = async (question: string, imageUrl?: string): Promise
   };
 
   try {
-      const updated = [newMerket, ...merkets];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([newMerket, ...merkets]));
   } catch (e) {
-      console.error("Storage quota exceeded", e);
-      throw new Error("Local storage is full. Try uploading a much smaller image or clear browser data.");
+      throw new Error("Local storage full. Try a smaller image.");
   }
 };
 
@@ -160,7 +154,6 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void
       });
       
       if (rpcError) {
-        // Fallback update if RPC is not defined
         const { data: current } = await supabase.from('markets').select('id, yes_votes, no_votes').eq('id', id).single();
         if (current) {
           const updates = {
@@ -172,20 +165,16 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void
       }
       markUserAsVoted(id);
       return;
-    } catch (e) {
-      console.error("Supabase Vote failed", e);
-    }
+    } catch (e) { console.error(e); }
   }
 
-  // Local Update
+  // Local Storage Update
   const stored = localStorage.getItem(STORAGE_KEY);
-  let merkets = [];
+  let merkets: any[] = [];
   try {
       const parsed = stored ? JSON.parse(stored) : [];
       merkets = Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
-      merkets = [];
-  }
+  } catch (e) { merkets = []; }
 
   const updated = merkets.map((m: any) => {
     if (m.id === id) {

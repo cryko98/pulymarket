@@ -12,8 +12,8 @@ const slugify = (text: string) => text
   .replace(/ +/g, '-')
   .substring(0, 50);
 
-// --- IMAGE COMPRESSION HELPER ---
-const compressImage = (base64: string, maxWidth = 800, quality = 0.7): Promise<string> => {
+// Aggressive compression to ensure Supabase/Local Storage limits are met
+const compressImage = (base64: string, maxWidth = 500, quality = 0.5): Promise<string> => {
     return new Promise((resolve) => {
         const img = new Image();
         img.src = base64;
@@ -255,8 +255,8 @@ const CreateMerketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubm
         const reader = new FileReader();
         reader.onloadend = async () => {
             const raw = reader.result as string;
-            // Compress before setting to preview/state
-            const compressed = await compressImage(raw);
+            // Aggressive compression for stability
+            const compressed = await compressImage(raw, 500, 0.5);
             setImgBase64(compressed);
         };
         reader.readAsDataURL(file);
@@ -266,8 +266,6 @@ const CreateMerketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubm
     const handleFormSubmit = () => {
         if (!question.trim()) return;
         onSubmit(question, imgBase64 || '');
-        // We don't reset state here, the parent does after a successful fetch usually, 
-        // or we can reset here if we assume it's moving forward.
     };
 
     if (!isOpen) return null;
@@ -290,7 +288,7 @@ const CreateMerketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubm
                         />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">Image (Auto-compressed)</label>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">Image (Upload)</label>
                         <div 
                           onClick={() => !isCreating && fileInputRef.current?.click()}
                           className={`w-full h-32 border-4 border-black border-dashed rounded-2xl bg-blue-50 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-100 relative overflow-hidden transition-all ${isCreating ? 'opacity-50 cursor-wait' : ''}`}
@@ -330,8 +328,6 @@ const PredictionMerket: React.FC = () => {
     try {
         const data = await getMerkets();
         setMerkets(data);
-        
-        // Deep linking support
         const hash = window.location.hash;
         if (hash) {
             const query = hash.replace('#', '');
@@ -361,13 +357,10 @@ const PredictionMerket: React.FC = () => {
     setActionLoading(true);
     try {
         await createMerket(q, img);
-        // Important: Wait for state to actually refresh
-        const freshData = await getMerkets();
-        setMerkets(freshData);
+        await fetchData();
         setIsCreateOpen(false);
-        // Clear creation state if successful is handled in modal reset or via closure
     } catch (e: any) {
-        alert(e.message || "Failed to create merket. Image might be too large.");
+        alert(e.message || "Failed to create merket.");
     }
     setActionLoading(false);
   };
