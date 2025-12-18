@@ -162,7 +162,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
 
     // Open Twitter Intent
     const slug = slugify(merket.question);
-    const shortLink = `${window.location.origin}/#${slug}`;
+    const shortLink = `${window.location.origin}/live-market#${slug}`;
     const sentiment = currentVote === 'YES' ? "BULLISH 🟢" : (currentVote === 'NO' ? "BEARISH 🔴" : "WATCHING 🔮");
     const tweetText = `Merket Check: "${merket.question}"\n\nSentiment: ${yesProb}% YES\nMy Verdict: ${sentiment}\n\nJoin the merket:\n${shortLink}\n\n$pulymerket`;
     
@@ -333,11 +333,11 @@ const CreateMerketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubm
                 <h2 className="text-3xl font-black text-black mb-6 uppercase italic tracking-tighter">NEW MERKET</h2>
                 <div className="space-y-4 mb-8">
                     <div>
-                      <label className="text-[10px] font-black uppercase text-blue-600 mb-1 block">The Question</label>
+                      <label className="text-[10px] font-black uppercase text-blue-600 mb-1 block text-left">The Question</label>
                       <textarea className="w-full bg-blue-50 border-4 border-black rounded-2xl p-4 text-black font-bold focus:outline-none focus:ring-4 focus:ring-blue-400 h-24 resize-none" placeholder="e.g. Will $puly reach 100M cap?" value={question} onChange={(e) => setQuestion(e.target.value)} disabled={isCreating} />
                     </div>
                     <div>
-                      <label className="text-[10px] font-black uppercase text-blue-600 mb-1 block">Merket Insight (Description)</label>
+                      <label className="text-[10px] font-black uppercase text-blue-600 mb-1 block text-left">Merket Insight (Description)</label>
                       <textarea className="w-full bg-gray-50 border-2 border-black/10 rounded-xl p-3 text-black font-bold focus:outline-none focus:border-blue-500 h-20 resize-none text-sm" placeholder="Why should people care? (Optional)" value={description} onChange={(e) => setDescription(e.target.value)} disabled={isCreating} />
                     </div>
                     <div onClick={() => !isCreating && fileInputRef.current?.click()} className="w-full h-32 border-4 border-black border-dashed rounded-2xl bg-blue-50 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-100 relative overflow-hidden">
