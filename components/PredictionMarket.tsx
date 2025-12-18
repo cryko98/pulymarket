@@ -2,7 +2,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getMerkets, createMerket, voteMerket, hasUserVoted, getComments, postComment } from '../services/marketService';
 import { PredictionMerket as MerketType, MerketComment } from '../types';
-import { Plus, Users, Loader2, X, BarChart3, ChevronRight, Share2, Upload, MessageSquare, Send } from 'lucide-react';
+import { Plus, Users, Loader2, X, BarChart3, ChevronRight, Share2, Upload, MessageSquare, Send, Twitter } from 'lucide-react';
+import html2canvas from 'html2canvas';
 
 const BRAND_LOGO = "https://pbs.twimg.com/media/G8b8OArXYAAkpHf?format=jpg&name=medium";
 
@@ -98,7 +99,6 @@ const CommentSection: React.FC<{ marketId: string }> = ({ marketId }) => {
         </div>
       </form>
 
-      {/* INDEPENDENT SCROLL AREA FOR COMMENTS */}
       <div 
         ref={scrollRef}
         className="space-y-4 max-h-[400px] overflow-y-auto pr-3 scrollbar-thin scrollbar-thumb-blue-600 scrollbar-track-transparent custom-scroll"
@@ -120,28 +120,55 @@ const CommentSection: React.FC<{ marketId: string }> = ({ marketId }) => {
           ))
         )}
       </div>
-      <style>{`
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #2563eb; border-radius: 10px; }
-      `}</style>
     </div>
   );
 };
 
 const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onVote: (id: string, option: 'YES' | 'NO') => void; isVoting: boolean }> = ({ merket, onClose, onVote, isVoting }) => {
   const [selectedOption, setSelectedOption] = useState<'YES' | 'NO' | null>(null);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const captureRef = useRef<HTMLDivElement>(null);
+  
   const totalVotes = merket.yesVotes + merket.noVotes;
   const yesProb = totalVotes === 0 ? 50 : Math.round((merket.yesVotes / totalVotes) * 100);
   const alreadyVoted = hasUserVoted(merket.id);
 
   const handleTweetAction = async () => {
-    if (selectedOption && !alreadyVoted) onVote(merket.id, selectedOption);
+    setIsCapturing(true);
+    
+    // 1. Vote first if not already voted
+    if (selectedOption && !alreadyVoted) {
+        await onVote(merket.id, selectedOption);
+    }
+
+    // 2. Capture and Download Image
+    if (captureRef.current) {
+        try {
+            // Give a tiny moment for DOM to settle if needed
+            const canvas = await html2canvas(captureRef.current, {
+                useCORS: true,
+                backgroundColor: '#ffffff',
+                scale: 2, // High resolution
+                logging: false,
+            });
+            const dataUrl = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = `pulymerket-${slugify(merket.question)}.png`;
+            link.href = dataUrl;
+            link.click();
+        } catch (err) {
+            console.error("Failed to capture image", err);
+        }
+    }
+
+    // 3. Open Twitter Intent
     const slug = slugify(merket.question);
     const shortLink = `${window.location.origin}/#${slug}`;
     const sentiment = selectedOption === 'YES' ? "BULLISH 🟢" : (selectedOption === 'NO' ? "BEARISH 🔴" : "WATCHING 🔮");
     const tweetText = `Merket Check: "${merket.question}"\n\nSentiment: ${yesProb}% YES\nMy Verdict: ${sentiment}\n\nJoin the merket:\n${shortLink}\n\n$pulymerket`;
+    
     window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`, '_blank');
+    setIsCapturing(false);
   };
 
   return (
@@ -152,37 +179,39 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
         </button>
 
         <div className="bg-white w-full rounded-[3rem] overflow-hidden shadow-2xl flex flex-col md:flex-row border-4 border-black h-full max-h-[85vh]">
-          {/* LEFT SIDE: INFO, CHART & SCROLLABLE COMMENTS */}
-          <div className="flex-1 p-8 overflow-y-auto custom-scroll border-b md:border-b-0 md:border-r-4 border-black text-left bg-white">
-            <div className="flex items-center gap-6 mb-8">
-              <div className="w-20 h-20 rounded-3xl bg-blue-600 border-4 border-black flex items-center justify-center overflow-hidden shrink-0 shadow-xl">
-                 <img src={merket.image || BRAND_LOGO} className="w-full h-full object-cover" alt="Merket" />
-              </div>
-              <div className="text-black">
-                <h2 className="text-3xl md:text-5xl font-black leading-none uppercase italic tracking-tighter mb-2">{merket.question}</h2>
-                <div className="flex items-center gap-4 text-gray-500 font-black text-xs uppercase tracking-widest">
-                  <span className="flex items-center gap-1.5 text-black bg-gray-100 px-3 py-1 rounded-full"><Users size={16}/> {totalVotes} VOTERS</span>
-                  <span className="flex items-center gap-1.5 text-blue-600"><BarChart3 size={16}/> TRENDING</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-4">
-                <div className="space-y-6">
-                    <MerketChart />
-                    <div className="bg-blue-600 text-white p-6 rounded-3xl border-4 border-black shadow-lg transform -rotate-1">
-                        <p className="text-xl font-black italic">"{merket.description}"</p>
+          {/* LEFT SIDE: INFO, CHART & SCROLLABLE COMMENTS (This is the area we capture) */}
+          <div className="flex-1 flex flex-col h-full overflow-hidden border-b md:border-b-0 md:border-r-4 border-black">
+            <div ref={captureRef} className="p-8 overflow-y-auto custom-scroll flex-1 bg-white">
+                <div className="flex items-center gap-6 mb-8">
+                  <div className="w-20 h-20 rounded-3xl bg-blue-600 border-4 border-black flex items-center justify-center overflow-hidden shrink-0 shadow-xl">
+                     <img src={merket.image || BRAND_LOGO} className="w-full h-full object-cover" alt="Merket" />
+                  </div>
+                  <div className="text-black">
+                    <h2 className="text-3xl md:text-5xl font-black leading-none uppercase italic tracking-tighter mb-2">{merket.question}</h2>
+                    <div className="flex items-center gap-4 text-gray-500 font-black text-xs uppercase tracking-widest">
+                      <span className="flex items-center gap-1.5 text-black bg-gray-100 px-3 py-1 rounded-full"><Users size={16}/> {totalVotes} VOTERS</span>
+                      <span className="flex items-center gap-1.5 text-blue-600"><BarChart3 size={16}/> PULY ORACLE VALIDATED</span>
                     </div>
+                  </div>
                 </div>
                 
-                <div className="bg-gray-50 p-6 rounded-3xl border-2 border-dashed border-gray-200">
-                    <CommentSection marketId={merket.id} />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-4">
+                    <div className="space-y-6">
+                        <MerketChart />
+                        <div className="bg-blue-600 text-white p-6 rounded-3xl border-4 border-black shadow-lg transform -rotate-1">
+                            <p className="text-xl font-black italic">"{merket.description}"</p>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-gray-50 p-6 rounded-3xl border-2 border-dashed border-gray-200">
+                        <CommentSection marketId={merket.id} />
+                    </div>
                 </div>
             </div>
           </div>
 
           {/* RIGHT SIDE: VOTING STICKY */}
-          <div className="w-full md:w-80 bg-gray-100 p-8 flex flex-col justify-center border-t-4 md:border-t-0 border-black">
+          <div className="w-full md:w-80 bg-gray-100 p-8 flex flex-col justify-center border-t-4 md:border-t-0 border-black shrink-0">
             <h3 className="font-black text-3xl uppercase italic tracking-tighter mb-10 text-black text-center">POSITION</h3>
             <div className="flex flex-col gap-6 mb-10">
               <div className="group relative">
@@ -195,17 +224,26 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
             
             <div className="mt-auto">
                 <button 
-                  disabled={(!selectedOption && !alreadyVoted) || isVoting} 
+                  disabled={(!selectedOption && !alreadyVoted) || isVoting || isCapturing} 
                   onClick={handleTweetAction} 
-                  className="w-full bg-blue-600 text-white font-black py-6 rounded-full border-b-8 border-blue-900 shadow-2xl flex items-center justify-center gap-3 text-xl hover:scale-105 active:scale-95 transition-all"
+                  className="w-full bg-blue-600 text-white font-black py-6 rounded-full border-b-8 border-blue-900 shadow-2xl flex items-center justify-center gap-3 text-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-70"
                 >
-                  {isVoting ? <Loader2 className="animate-spin" /> : <><Share2 size={24}/> BROADCAST VOTE</>}
+                  {isVoting || isCapturing ? (
+                    <><Loader2 className="animate-spin" /> {isCapturing ? 'GENERATING...' : 'VOTING...'}</>
+                  ) : (
+                    <><Twitter size={24}/> TWEET MERKET</>
+                  )}
                 </button>
                 <p className="text-center text-[10px] font-black text-gray-400 mt-4 uppercase tracking-[0.2em]">Validated by PulyOracle</p>
             </div>
           </div>
         </div>
       </div>
+      <style>{`
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #2563eb; border-radius: 10px; }
+      `}</style>
     </div>
   );
 };
@@ -222,7 +260,6 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
   return (
     <div onClick={() => onOpen(merket)} className="bg-white border-4 border-black rounded-[2.5rem] p-8 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] transition-all hover:-translate-y-2 hover:translate-x-1 hover:shadow-[16px_16px_0px_0px_rgba(0,0,0,1)] cursor-pointer flex flex-col group h-full relative overflow-hidden">
       
-      {/* CARD DECORATION */}
       <div className="absolute -top-6 -right-6 w-20 h-20 bg-blue-600 rotate-45 border-4 border-black"></div>
 
       <div className="flex items-start gap-5 mb-8">
