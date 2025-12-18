@@ -1,9 +1,9 @@
-
 import { PredictionMerket } from '../types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 const STORAGE_KEY = 'puly_merket_data_v2';
 const USER_VOTES_KEY = 'puly_user_votes_v2';
+const BRAND_LOGO = "https://pbs.twimg.com/media/G8b8OArXYAAkpHf?format=jpg&name=medium";
 
 const FUNNY_INSIGHTS = [
   "Oracle status: High on digital incense.",
@@ -22,7 +22,7 @@ const SEED_DATA: PredictionMerket[] = [
     yesVotes: 420,
     noVotes: 69,
     createdAt: Date.now(),
-    image: 'https://pbs.twimg.com/media/G8bzt3JakAMwh2N?format=jpg&name=small',
+    image: BRAND_LOGO,
     description: "The ultimate test of faith. If you believe, the chart will follow."
   }
 ];
@@ -55,10 +55,10 @@ const markUserAsVoted = (merketId: string) => {
 export const getMerkets = async (): Promise<PredictionMerket[]> => {
   if (isSupabaseConfigured() && supabase) {
     try {
-      // Explicitly select the image column
+      // Explicitly select the 'image' and 'description' columns
       const { data, error } = await supabase
         .from('markets')
-        .select('id, question, yes_votes, no_votes, created_at, image')
+        .select('id, question, yes_votes, no_votes, created_at, image, description')
         .order('created_at', { ascending: false });
       
       if (!error && data) {
@@ -69,7 +69,7 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
           noVotes: parseInt(item.no_votes || 0),
           createdAt: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
           image: item.image,
-          description: FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)]
+          description: item.description || FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)]
         }));
       } else if (error) {
         console.warn("Supabase fetch failed, falling back to local storage.", error.message);
@@ -105,11 +105,11 @@ export const createMerket = async (question: string, imageUrl?: string): Promise
           question: question.trim(), 
           yes_votes: 0, 
           no_votes: 0, 
-          image: imageUrl 
+          image: imageUrl,
+          description: FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)]
         }]);
       
       if (error) {
-        console.error("Supabase insert error details:", error);
         throw new Error(`Database error: ${error.message}. Did you run the SQL setup?`);
       }
       return;

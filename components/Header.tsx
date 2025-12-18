@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 
@@ -9,7 +8,7 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ onLogoClick }) => {
   const [copied, setCopied] = useState(false);
   const ca = "C1JSieeYSvMZpq8oRioJWgxuSHwBo2ahgwcejFEvpump";
-  const logoUrl = "https://pbs.twimg.com/media/G8bzt3JakAMwh2N?format=jpg&name=small";
+  const logoUrl = "https://pbs.twimg.com/media/G8b8OArXYAAkpHf?format=jpg&name=medium";
 
   const handleCopy = () => {
     navigator.clipboard.writeText(ca);

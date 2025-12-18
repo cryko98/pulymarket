@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface HeroProps {
@@ -6,7 +5,7 @@ interface HeroProps {
 }
 
 const Hero: React.FC<HeroProps> = ({ onStart }) => {
-  const logoUrl = "https://pbs.twimg.com/media/G8bzt3JakAMwh2N?format=jpg&name=small";
+  const logoUrl = "https://pbs.twimg.com/media/G8b8OArXYAAkpHf?format=jpg&name=medium";
 
   return (
     <section className="relative pt-32 pb-20">
