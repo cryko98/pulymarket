@@ -12,6 +12,32 @@ const slugify = (text: string) => text
   .replace(/ +/g, '-')
   .substring(0, 50);
 
+// --- IMAGE COMPRESSION HELPER ---
+const compressImage = (base64: string, maxWidth = 800, quality = 0.7): Promise<string> => {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.src = base64;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+
+            if (width > maxWidth) {
+                height = (maxWidth / width) * height;
+                width = maxWidth;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return resolve(base64);
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => resolve(base64);
+    });
+};
+
 // --- MOCK CHART COMPONENT ---
 const MerketChart = () => (
   <div className="w-full h-48 relative overflow-hidden bg-blue-50/50 rounded-xl border border-blue-100 mb-6 group text-black">
@@ -58,7 +84,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
           useCORS: true 
         });
         const link = document.createElement('a');
-        link.download = `pulymerket-${merket.id.substring(0,4)}.png`;
+        link.download = `pulymerket-${merket.id.substring(0,8)}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
     } catch (e) { console.error("Image generation failed", e); }
@@ -69,15 +95,11 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
         onVote(merket.id, selectedOption);
     }
 
-    // Trigger image download proof
     downloadCard();
 
-    // Clean Link Generation: https://pulymerket.com/#slugified-question
     const slug = slugify(merket.question);
     const shortLink = `https://pulymerket.com/#${slug}`;
-    
     const sentiment = selectedOption === 'YES' ? "BULLISH 🟢" : (selectedOption === 'NO' ? "BEARISH 🔴" : "WATCHING 🔮");
-    
     const tweetText = `Merket Check: "${merket.question}"\n\nSentiment: ${yesProb}% YES\nMy Verdict: ${sentiment}\n\nJoin the merket:\n${shortLink}\n\n$pulymerket`;
     
     const xIntentUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
@@ -230,11 +252,22 @@ const CreateMerketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubm
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
-        // Compress/Check size if possible, but for now simple FileReader
         const reader = new FileReader();
-        reader.onloadend = () => setImgBase64(reader.result as string);
+        reader.onloadend = async () => {
+            const raw = reader.result as string;
+            // Compress before setting to preview/state
+            const compressed = await compressImage(raw);
+            setImgBase64(compressed);
+        };
         reader.readAsDataURL(file);
       }
+    };
+
+    const handleFormSubmit = () => {
+        if (!question.trim()) return;
+        onSubmit(question, imgBase64 || '');
+        // We don't reset state here, the parent does after a successful fetch usually, 
+        // or we can reset here if we assume it's moving forward.
     };
 
     if (!isOpen) return null;
@@ -257,10 +290,10 @@ const CreateMerketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubm
                         />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">Image (Keep it small)</label>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">Image (Auto-compressed)</label>
                         <div 
-                          onClick={() => fileInputRef.current?.click()}
-                          className="w-full h-32 border-4 border-black border-dashed rounded-2xl bg-blue-50 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-100 relative overflow-hidden"
+                          onClick={() => !isCreating && fileInputRef.current?.click()}
+                          className={`w-full h-32 border-4 border-black border-dashed rounded-2xl bg-blue-50 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-100 relative overflow-hidden transition-all ${isCreating ? 'opacity-50 cursor-wait' : ''}`}
                         >
                             {imgBase64 ? <img src={imgBase64} className="w-full h-full object-cover" /> : <Upload className="text-blue-600" />}
                         </div>
@@ -268,8 +301,17 @@ const CreateMerketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubm
                     </div>
                 </div>
                 <div className="flex justify-end gap-4">
-                    <button onClick={() => onSubmit(question, imgBase64 || '')} disabled={!question.trim() || isCreating} className="bg-blue-600 text-white font-black px-10 py-3 rounded-full hover:bg-blue-700 shadow-lg border-b-4 border-blue-900">
-                        {isCreating ? <Loader2 size={18} className="animate-spin" /> : 'LAUNCH MERKET'}
+                    <button 
+                      onClick={handleFormSubmit} 
+                      disabled={!question.trim() || isCreating} 
+                      className="w-full bg-blue-600 text-white font-black px-10 py-4 rounded-full hover:bg-blue-700 shadow-lg border-b-4 border-blue-900 flex items-center justify-center gap-3 disabled:bg-gray-400 disabled:border-gray-500"
+                    >
+                        {isCreating ? (
+                            <>
+                                <Loader2 size={18} className="animate-spin" />
+                                LAUNCHING...
+                            </>
+                        ) : 'LAUNCH MERKET'}
                     </button>
                 </div>
             </div>
@@ -302,24 +344,30 @@ const PredictionMerket: React.FC = () => {
   useEffect(() => { fetchData(); }, []);
 
   const handleVote = async (id: string, option: 'YES' | 'NO') => {
+    if (actionLoading) return;
     setActionLoading(true);
     try {
         await voteMerket(id, option); 
-        await fetchData();
-        const current = merkets.find(m => m.id === id);
+        const updated = await getMerkets();
+        setMerkets(updated);
+        const current = updated.find(m => m.id === id);
         if (current) setSelectedMerket(current);
-    } catch (e) { alert("Vote failed"); }
+    } catch (e) { alert("Vote failed. Check connection."); }
     setActionLoading(false);
   };
 
   const handleCreate = async (q: string, img?: string) => {
+    if (actionLoading) return;
     setActionLoading(true);
     try {
         await createMerket(q, img);
-        await fetchData();
+        // Important: Wait for state to actually refresh
+        const freshData = await getMerkets();
+        setMerkets(freshData);
         setIsCreateOpen(false);
+        // Clear creation state if successful is handled in modal reset or via closure
     } catch (e: any) {
-        alert(e.message || "Failed to create merket");
+        alert(e.message || "Failed to create merket. Image might be too large.");
     }
     setActionLoading(false);
   };
@@ -341,7 +389,10 @@ const PredictionMerket: React.FC = () => {
                     Community Merket Oracle v1.0
                 </p>
             </div>
-            <button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-3 bg-white text-blue-600 px-10 py-4 rounded-full shadow-2xl font-black text-xl border-b-4 border-gray-300 hover:scale-105 active:scale-95 transition-all">
+            <button 
+                onClick={() => setIsCreateOpen(true)} 
+                className="flex items-center gap-3 bg-white text-blue-600 px-10 py-4 rounded-full shadow-2xl font-black text-xl border-b-4 border-gray-300 hover:scale-105 active:scale-95 transition-all"
+            >
                 <Plus size={24} /> NEW MERKET
             </button>
         </div>
@@ -365,7 +416,12 @@ const PredictionMerket: React.FC = () => {
         )}
       </div>
 
-      <CreateMerketModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} onSubmit={handleCreate} isCreating={actionLoading} />
+      <CreateMerketModal 
+        isOpen={isCreateOpen} 
+        onClose={() => setIsCreateOpen(false)} 
+        onSubmit={handleCreate} 
+        isCreating={actionLoading} 
+      />
       {selectedMerket && (
         <MerketDetailModal 
             merket={selectedMerket} 
