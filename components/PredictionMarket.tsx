@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getMerkets, createMerket, voteMerket, getUserVote, getComments, postComment } from '../services/marketService';
 import { PredictionMerket as MerketType, MerketComment } from '../types';
-import { Plus, Users, Loader2, X, BarChart3, ChevronRight, Share2, Upload, MessageSquare, Send, Twitter, CheckCircle2 } from 'lucide-react';
+import { Plus, Users, Loader2, X, BarChart3, ChevronRight, Share2, Upload, MessageSquare, Send, Twitter, CheckCircle2, AlignLeft } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
 const BRAND_LOGO = "https://pbs.twimg.com/media/G8b8OArXYAAkpHf?format=jpg&name=medium";
@@ -66,7 +66,7 @@ const CommentSection: React.FC<{ marketId: string }> = ({ marketId }) => {
 
   return (
     <div className="mt-8 pt-6 border-t-4 border-black/5">
-      <h3 className="text-xl font-black uppercase italic mb-4 flex items-center gap-2 text-black">
+      <h3 className="text-xl font-black uppercase italic mb-4 flex items-center gap-2 text-black text-left">
         <MessageSquare size={20} className="text-blue-600" /> Comments ({comments.length})
       </h3>
       
@@ -115,7 +115,7 @@ const CommentSection: React.FC<{ marketId: string }> = ({ marketId }) => {
                 <span className="font-black text-xs text-blue-600 uppercase tracking-tighter bg-blue-50 px-2 py-0.5 rounded-md">@{c.username}</span>
                 <span className="text-[10px] text-gray-400 font-mono font-bold">{new Date(c.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
               </div>
-              <p className="text-sm text-black font-bold leading-snug">{c.content}</p>
+              <p className="text-sm text-black font-bold leading-snug text-left">{c.content}</p>
             </div>
           ))
         )}
@@ -312,8 +312,9 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
   );
 };
 
-const CreateMerketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubmit: (q: string, img?: string) => void; isCreating: boolean }> = ({ isOpen, onClose, onSubmit, isCreating }) => {
+const CreateMerketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubmit: (q: string, d: string, img?: string) => void; isCreating: boolean }> = ({ isOpen, onClose, onSubmit, isCreating }) => {
     const [question, setQuestion] = useState('');
+    const [description, setDescription] = useState('');
     const [imgBase64, setImgBase64] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -331,13 +332,20 @@ const CreateMerketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubm
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-black"><X size={24} /></button>
                 <h2 className="text-3xl font-black text-black mb-6 uppercase italic tracking-tighter">NEW MERKET</h2>
                 <div className="space-y-4 mb-8">
-                    <textarea className="w-full bg-blue-50 border-4 border-black rounded-2xl p-4 text-black font-bold focus:outline-none focus:ring-4 focus:ring-blue-400" rows={3} placeholder="e.g. Will $puly reach 100M cap?" value={question} onChange={(e) => setQuestion(e.target.value)} disabled={isCreating} />
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-blue-600 mb-1 block">The Question</label>
+                      <textarea className="w-full bg-blue-50 border-4 border-black rounded-2xl p-4 text-black font-bold focus:outline-none focus:ring-4 focus:ring-blue-400 h-24 resize-none" placeholder="e.g. Will $puly reach 100M cap?" value={question} onChange={(e) => setQuestion(e.target.value)} disabled={isCreating} />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-blue-600 mb-1 block">Merket Insight (Description)</label>
+                      <textarea className="w-full bg-gray-50 border-2 border-black/10 rounded-xl p-3 text-black font-bold focus:outline-none focus:border-blue-500 h-20 resize-none text-sm" placeholder="Why should people care? (Optional)" value={description} onChange={(e) => setDescription(e.target.value)} disabled={isCreating} />
+                    </div>
                     <div onClick={() => !isCreating && fileInputRef.current?.click()} className="w-full h-32 border-4 border-black border-dashed rounded-2xl bg-blue-50 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-100 relative overflow-hidden">
                         {imgBase64 ? <img src={imgBase64} className="w-full h-full object-cover" /> : <div className="flex flex-col items-center"><Upload className="text-blue-600 mb-2" /><span className="text-[10px] font-black uppercase text-gray-400">Add Cover Image</span></div>}
                     </div>
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                 </div>
-                <button onClick={() => onSubmit(question, imgBase64 || '')} disabled={!question.trim() || isCreating} className="w-full bg-blue-600 text-white font-black px-10 py-5 rounded-full border-b-8 border-blue-900 flex items-center justify-center gap-3 text-xl hover:scale-105 active:scale-95 transition-all">
+                <button onClick={() => onSubmit(question, description, imgBase64 || '')} disabled={!question.trim() || isCreating} className="w-full bg-blue-600 text-white font-black px-10 py-5 rounded-full border-b-8 border-blue-900 flex items-center justify-center gap-3 text-xl hover:scale-105 active:scale-95 transition-all">
                     {isCreating ? <Loader2 className="animate-spin" /> : 'DEPLOY MERKET'}
                 </button>
             </div>
@@ -413,7 +421,7 @@ const PredictionMerket: React.FC = () => {
         )}
       </div>
 
-      <CreateMerketModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} onSubmit={async (q, i) => { setActionLoading(true); await createMerket(q, i); await fetchData(); setIsCreateOpen(false); setActionLoading(false); }} isCreating={actionLoading} />
+      <CreateMerketModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} onSubmit={async (q, d, i) => { setActionLoading(true); await createMerket(q, d, i); await fetchData(); setIsCreateOpen(false); setActionLoading(false); }} isCreating={actionLoading} />
       {selectedMerket && <MerketDetailModal merket={selectedMerket} onClose={() => { setSelectedMerket(null); window.location.hash = ''; }} onVote={handleVote} isVoting={actionLoading} />}
     </section>
   );

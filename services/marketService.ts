@@ -85,20 +85,30 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
   return localData.sort((a, b) => b.createdAt - a.createdAt);
 };
 
-export const createMerket = async (question: string, imageUrl?: string): Promise<void> => {
+export const createMerket = async (question: string, description?: string, imageUrl?: string): Promise<void> => {
+  const finalDescription = description?.trim() || FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)];
+  
   if (isSupabaseConfigured() && supabase) {
     await supabase.from('markets').insert([{ 
       question: question.trim(), 
       yes_votes: 0, 
       no_votes: 0, 
       image: imageUrl,
-      description: FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)]
+      description: finalDescription
     }]);
     return;
   }
   const stored = localStorage.getItem(STORAGE_KEY);
   const merkets = stored ? JSON.parse(stored) : [];
-  const newMerket = { id: `local-${crypto.randomUUID()}`, question, yesVotes: 0, noVotes: 0, createdAt: Date.now(), image: imageUrl, description: "Local Merket" };
+  const newMerket = { 
+    id: `local-${crypto.randomUUID()}`, 
+    question, 
+    yesVotes: 0, 
+    noVotes: 0, 
+    createdAt: Date.now(), 
+    image: imageUrl, 
+    description: finalDescription 
+  };
   localStorage.setItem(STORAGE_KEY, JSON.stringify([newMerket, ...merkets]));
 };
 
