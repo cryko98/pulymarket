@@ -2,13 +2,13 @@
 import { PredictionMarket } from '../types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
-const STORAGE_KEY = 'puly_market_data';
+const STORAGE_KEY = 'puly_merket_data';
 const USER_VOTES_KEY = 'puly_user_votes';
 
 const SEED_DATA: PredictionMarket[] = [
   {
     id: 'puly-1',
-    question: 'Will $pulymarket reach 100M Market Cap by April?',
+    question: 'Will $pulymerket reach 100M Market Cap by April?',
     yesVotes: 420,
     noVotes: 69,
     totalVolume: 50000,
@@ -101,7 +101,6 @@ export const voteMarket = async (id: string, option: 'YES' | 'NO'): Promise<void
   if (hasUserVoted(id)) return;
 
   if (isSupabaseConfigured() && supabase) {
-    // Attempt to use the RPC function if it exists, otherwise fallback to standard update
     try {
       const { error: rpcError } = await supabase.rpc('increment_vote', { 
         market_id: id, 
@@ -109,7 +108,6 @@ export const voteMarket = async (id: string, option: 'YES' | 'NO'): Promise<void
       });
       
       if (rpcError) {
-        // Fallback to manual update if RPC fails
         const { data: current } = await supabase.from('markets').select('*').eq('id', id).single();
         if (current) {
           const updates = {

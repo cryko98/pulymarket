@@ -22,12 +22,12 @@ const Hero: React.FC = () => {
           
           <div className="mb-6">
              <span className="px-5 py-2 rounded-full bg-white text-blue-600 text-sm font-black uppercase tracking-wider shadow-lg border-2 border-blue-600">
-                $pulymarket
+                $pulymerket
              </span>
           </div>
 
           <h1 className="text-6xl md:text-9xl font-black mb-6 text-white text-outline leading-tight tracking-tight drop-shadow-xl uppercase italic">
-            PULY MARKET
+            PULY MERKET
           </h1>
           
           <p className="text-xl md:text-2xl text-white font-bold mb-10 max-w-2xl leading-relaxed drop-shadow-md">

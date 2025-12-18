@@ -23,7 +23,7 @@ const Header: React.FC = () => {
                 <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
             </div>
             <span className="text-xl md:text-2xl font-black italic tracking-tighter text-white uppercase drop-shadow-md">
-                PULYMARKET
+                PULYMERKET
             </span>
         </div>
 

@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import { getMarkets, createMarket, voteMarket, hasUserVoted } from '../services/marketService';
 import { PredictionMarket as MarketType } from '../types';
 import { Plus, TrendingUp, Users, Loader2, CheckCircle2 } from 'lucide-react';
-import { isSupabaseConfigured } from '../services/supabaseClient';
 
 const MarketCard: React.FC<{ market: MarketType; onVote: (id: string, option: 'YES' | 'NO') => Promise<void>; isVoting: boolean }> = ({ market, onVote, isVoting }) => {
   const totalVotes = market.yesVotes + market.noVotes;
@@ -181,12 +180,12 @@ const PredictionMarket: React.FC = () => {
         
         <div className="flex flex-col md:flex-row justify-between items-center mb-16 gap-6 text-center md:text-left">
             <div>
-                <h2 className="text-5xl md:text-7xl font-black text-white mb-4 flex items-center justify-center md:justify-start gap-4 tracking-tighter text-outline italic">
+                <h2 className="text-5xl md:text-7xl font-black text-white mb-4 flex items-center justify-center md:justify-start gap-4 tracking-tighter text-outline italic uppercase">
                     <TrendingUp size={48} />
-                    LIVE PULY MARKETS
+                    LIVE PULY MERKETS
                 </h2>
                 <div className="flex items-center justify-center md:justify-start gap-3">
-                    <p className="text-white text-2xl font-black drop-shadow-md uppercase italic">Vote or vanish. $pulymarket logic.</p>
+                    <p className="text-white text-2xl font-black drop-shadow-md uppercase italic">Vote or vanish. $pulymerket logic.</p>
                 </div>
             </div>
             

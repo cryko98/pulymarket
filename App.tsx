@@ -43,7 +43,7 @@ const AboutSection = () => (
              The Puly Advantage
           </h3>
           <p className="text-lg font-bold mb-6 opacity-90">
-            $pulymarket isn't just a ticker; it's the infrastructure for the next cycle. 
+            $pulymerket isn't just a ticker; it's the infrastructure for the next cycle. 
             We are shipping tools, research, and data that memecoins simply can't match.
           </p>
           <ul className="space-y-4">
@@ -66,7 +66,7 @@ const AboutSection = () => (
       <div className="max-w-3xl mx-auto border-t-4 border-dashed border-blue-200 pt-10">
         <p className="text-4xl md:text-5xl font-black uppercase italic tracking-tighter text-blue-900">
           THE PARTY IS OVER FOR JEETS. <br/>
-          <span className="bg-blue-600 text-white px-4">ONLY PULYMARKET SURVIVES.</span>
+          <span className="bg-blue-600 text-white px-4">ONLY PULYMERKET SURVIVES.</span>
         </p>
         <p className="mt-6 text-lg font-bold opacity-60">
             Position yourself for the $19 Billion sector expansion.
@@ -98,12 +98,12 @@ function App() {
                 <div className="w-10 h-10 rounded-full border-2 border-white overflow-hidden bg-blue-600 shadow-md">
                   <img src="https://pbs.twimg.com/media/G8bzt3JakAMwh2N?format=jpg&name=small" alt="Logo" className="w-full h-full object-cover" />
                 </div>
-                <span className="font-black italic text-white text-2xl drop-shadow-md uppercase tracking-tighter">PULYMARKET</span>
+                <span className="font-black italic text-white text-2xl drop-shadow-md uppercase tracking-tighter">PULYMERKET</span>
             </div>
             <p className="mb-2 font-black uppercase tracking-widest text-sm italic">© 2025 THE LAST ORACLE STANDING</p>
             <p className="text-xs opacity-70 mb-6 max-w-sm mx-auto">
               Warning: 97% of memecoins will be dead by next month. 
-              $pulymarket is building for the future of prediction markets.
+              $pulymerket is building for the future of prediction markets.
             </p>
             
             <div className="flex justify-center items-center gap-2 pt-4 border-t border-white/10 w-full max-w-xs mx-auto">
