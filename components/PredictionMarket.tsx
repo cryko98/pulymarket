@@ -2,8 +2,15 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getMerkets, createMerket, voteMerket, hasUserVoted } from '../services/marketService';
 import { PredictionMerket as MerketType } from '../types';
-import { Plus, Users, Loader2, Camera, X, Info, ArrowUpRight, BarChart3, ChevronRight, Share2, Upload, ImageIcon } from 'lucide-react';
+import { Plus, Users, Loader2, Camera, X, Info, ArrowUpRight, BarChart3, ChevronRight, Share2, Upload } from 'lucide-react';
 import html2canvas from 'html2canvas';
+
+// Helper to create a URL-friendly slug from the question
+const slugify = (text: string) => text
+  .toLowerCase()
+  .replace(/[^\w ]+/g, '')
+  .replace(/ +/g, '-')
+  .substring(0, 50);
 
 // --- MOCK CHART COMPONENT ---
 const MerketChart = () => (
@@ -51,7 +58,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
           useCORS: true 
         });
         const link = document.createElement('a');
-        link.download = `puly-merket-${merket.id.substring(0,4)}.png`;
+        link.download = `pulymerket-${merket.id.substring(0,4)}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
     } catch (e) { console.error("Image generation failed", e); }
@@ -65,17 +72,16 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
     // Trigger image download proof
     downloadCard();
 
-    // Short link configuration using pulymerket.com domain
-    const shortLink = `https://pulymerket.com/#m-${merket.id}`;
+    // Clean Link Generation: https://pulymerket.com/#m-[slugified-question]
+    const slug = slugify(merket.question);
+    const shortLink = `https://pulymerket.com/#m-${slug}`;
     
     const sentiment = selectedOption === 'YES' ? "BULLISH 🟢" : (selectedOption === 'NO' ? "BEARISH 🔴" : "WATCHING 🔮");
     
-    // Updated text with $pulymerket ticker
+    // Ticker updated to $pulymerket
     const tweetText = `Merket Check: "${merket.question}"\n\nSentiment: ${yesProb}% YES\nMy Verdict: ${sentiment}\n\nJoin the merket:\n${shortLink}\n\n$pulymerket`;
     
     const xIntentUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
-    
-    // Open X in new tab
     window.open(xIntentUrl, '_blank');
   };
 
@@ -85,7 +91,6 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
         <button 
           onClick={onClose} 
           className="absolute -top-12 md:-top-6 md:-right-6 z-[210] p-3 bg-white text-black border-4 border-black rounded-full shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:scale-110 active:scale-95 transition-all flex items-center justify-center"
-          title="Close"
         >
           <X size={28} />
         </button>
@@ -113,17 +118,6 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
                       <Info size={14} /> Merket Analysis
                   </h4>
                   <p className="text-black font-bold italic">"{merket.description}"</p>
-               </div>
-               
-               <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-2xl border-2 border-gray-100">
-                      <span className="block text-[10px] font-black text-gray-400 uppercase">Oracle Chance</span>
-                      <span className="text-2xl font-black text-black">{yesProb}% YES</span>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-2xl border-2 border-gray-100">
-                      <span className="block text-[10px] font-black text-gray-400 uppercase">Integrity Score</span>
-                      <span className="text-2xl font-black text-green-500 uppercase italic">HIGH</span>
-                  </div>
                </div>
             </div>
           </div>
@@ -163,12 +157,6 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
                   </>
               )}
             </button>
-
-            <div className="mt-auto pt-8">
-              <button onClick={downloadCard} className="w-full flex items-center justify-center gap-2 text-gray-400 hover:text-blue-600 font-black text-[10px] uppercase tracking-widest transition-colors">
-                  <Camera size={14} /> Download Merket Card
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -195,7 +183,7 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
               {merket.question}
             </h3>
             <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                <Users size={12} /> {totalVotes} Community Votes
+                <Users size={12} /> {totalVotes} Votes
             </div>
         </div>
       </div>
@@ -229,7 +217,7 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
       </div>
 
       <div className="w-full py-4 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 text-gray-400 font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 group-hover:bg-blue-50 group-hover:border-blue-300 group-hover:text-blue-600 transition-all">
-        Open Merket Detail <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
+        Open Merket Details <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
       </div>
     </div>
   );
@@ -249,28 +237,13 @@ const CreateMerketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubm
       }
     };
 
-    const handlePaste = (e: React.ClipboardEvent) => {
-      const items = e.clipboardData.items;
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf("image") !== -1) {
-          const blob = items[i].getAsFile();
-          if (blob) {
-            const reader = new FileReader();
-            reader.onloadend = () => setImgBase64(reader.result as string);
-            reader.readAsDataURL(blob);
-          }
-        }
-      }
-    };
-
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-blue-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white border-4 border-black w-full max-w-md rounded-3xl p-8 shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] relative" onPaste={handlePaste}>
+            <div className="bg-white border-4 border-black w-full max-w-md rounded-3xl p-8 shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] relative">
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-black transition-colors"><X size={24} /></button>
                 <h2 className="text-3xl font-black text-black mb-6 uppercase italic tracking-tighter">NEW MERKET</h2>
-                
                 <div className="space-y-4 mb-8">
                     <div>
                         <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">Question</label>
@@ -284,31 +257,18 @@ const CreateMerketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubm
                         />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">Merket Image (Upload or Paste)</label>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">Image (Upload)</label>
                         <div 
                           onClick={() => fileInputRef.current?.click()}
-                          className="w-full h-32 border-4 border-black border-dashed rounded-2xl bg-blue-50 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-100 transition-colors relative overflow-hidden"
+                          className="w-full h-32 border-4 border-black border-dashed rounded-2xl bg-blue-50 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-100 relative overflow-hidden"
                         >
-                            {imgBase64 ? (
-                              <img src={imgBase64} className="w-full h-full object-cover" alt="Preview" />
-                            ) : (
-                              <>
-                                <Upload size={32} className="text-blue-600 mb-2" />
-                                <span className="text-[10px] font-black uppercase text-blue-600">Click to Upload or Paste Image</span>
-                              </>
-                            )}
+                            {imgBase64 ? <img src={imgBase64} className="w-full h-full object-cover" /> : <Upload className="text-blue-600" />}
                         </div>
                         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
                     </div>
                 </div>
-
                 <div className="flex justify-end gap-4">
-                    <button onClick={onClose} disabled={isCreating} className="px-6 py-2 text-black font-black uppercase hover:underline">Abort</button>
-                    <button 
-                        disabled={!question.trim() || isCreating}
-                        onClick={() => onSubmit(question, imgBase64 || '')} 
-                        className="bg-blue-600 text-white font-black px-10 py-3 rounded-full hover:bg-blue-700 shadow-lg border-b-4 border-blue-900"
-                    >
+                    <button onClick={() => onSubmit(question, imgBase64 || '')} disabled={!question.trim() || isCreating} className="bg-blue-600 text-white font-black px-10 py-3 rounded-full hover:bg-blue-700 shadow-lg border-b-4 border-blue-900">
                         {isCreating ? <Loader2 size={18} className="animate-spin" /> : 'LAUNCH MERKET'}
                     </button>
                 </div>
@@ -328,10 +288,12 @@ const PredictionMerket: React.FC = () => {
     try {
         const data = await getMerkets();
         setMerkets(data);
+        
+        // Deep linking support for both ID and Slug
         const hash = window.location.hash;
         if (hash.startsWith('#m-')) {
-            const merketId = hash.replace('#m-', '');
-            const target = data.find(m => m.id === merketId);
+            const query = hash.replace('#m-', '');
+            const target = data.find(m => m.id === query || slugify(m.question) === query);
             if (target) setSelectedMerket(target);
         }
     } catch (e) { console.error(e); } finally { setLoading(false); }
@@ -371,7 +333,7 @@ const PredictionMerket: React.FC = () => {
                     <BarChart3 size={48} /> LIVE MERKETS
                 </h2>
                 <p className="text-white/60 font-black uppercase tracking-[0.2em] text-xs italic">
-                    Free Community Merket Oracle v1.0
+                    Community Merket Oracle v1.0
                 </p>
             </div>
             <button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-3 bg-white text-blue-600 px-10 py-4 rounded-full shadow-2xl font-black text-xl border-b-4 border-gray-300 hover:scale-105 active:scale-95 transition-all">
@@ -389,7 +351,7 @@ const PredictionMerket: React.FC = () => {
                         merket={m} 
                         onOpen={(target) => { 
                             setSelectedMerket(target);
-                            window.location.hash = `m-${target.id}`; 
+                            window.location.hash = `m-${slugify(target.question)}`; 
                         }} 
                         onVote={handleVote} 
                     />
