@@ -2,8 +2,8 @@
 import { PredictionMerket } from '../types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
-const STORAGE_KEY = 'puly_merket_data';
-const USER_VOTES_KEY = 'puly_user_votes';
+const STORAGE_KEY = 'puly_merket_data_v2';
+const USER_VOTES_KEY = 'puly_user_votes_v2';
 
 const FUNNY_INSIGHTS = [
   "Oracle status: High on digital incense.",
@@ -75,10 +75,18 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
 
   const stored = localStorage.getItem(STORAGE_KEY);
   if (!stored) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED_DATA));
+    // Return seed if nothing exists
     return SEED_DATA;
   }
-  return JSON.parse(stored);
+  try {
+    const parsed = JSON.parse(stored);
+    // Merge seed with stored to ensure the first one always exists
+    const merged = [...parsed];
+    if (!merged.find(m => m.id === 'puly-1')) merged.push(SEED_DATA[0]);
+    return merged;
+  } catch (e) {
+    return SEED_DATA;
+  }
 };
 
 export const createMerket = async (question: string, imageUrl?: string): Promise<void> => {
@@ -95,12 +103,18 @@ export const createMerket = async (question: string, imageUrl?: string): Promise
         description: description
       }]);
     
-    if (error) console.error("Create error:", error);
+    if (error) throw new Error(error.message);
     return;
   }
 
   const stored = localStorage.getItem(STORAGE_KEY);
-  const merkets = stored ? JSON.parse(stored) : SEED_DATA;
+  let merkets = [];
+  try {
+      merkets = stored ? JSON.parse(stored) : [];
+  } catch (e) {
+      merkets = [];
+  }
+
   const newMerket: PredictionMerket = {
     id: crypto.randomUUID(),
     question,
@@ -110,7 +124,14 @@ export const createMerket = async (question: string, imageUrl?: string): Promise
     image: imageUrl,
     description: description
   };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([newMerket, ...merkets]));
+
+  try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([newMerket, ...merkets]));
+  } catch (e) {
+      // Typically QuotaExceededError if image is too large
+      console.error("Storage error", e);
+      throw new Error("Image too large or storage full! Try a smaller image.");
+  }
 };
 
 export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void> => {
@@ -141,7 +162,13 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void
   }
 
   const stored = localStorage.getItem(STORAGE_KEY);
-  const merkets = stored ? JSON.parse(stored) : SEED_DATA;
+  let merkets = [];
+  try {
+      merkets = stored ? JSON.parse(stored) : SEED_DATA;
+  } catch (e) {
+      merkets = SEED_DATA;
+  }
+
   const updated = merkets.map((m: any) => {
     if (m.id === id) {
       return {
@@ -152,6 +179,7 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void
     }
     return m;
   });
+  
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   markUserAsVoted(id);
 };

@@ -72,13 +72,12 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
     // Trigger image download proof
     downloadCard();
 
-    // Clean Link Generation: https://pulymerket.com/#m-[slugified-question]
+    // Clean Link Generation: https://pulymerket.com/#slugified-question
     const slug = slugify(merket.question);
-    const shortLink = `https://pulymerket.com/#m-${slug}`;
+    const shortLink = `https://pulymerket.com/#${slug}`;
     
     const sentiment = selectedOption === 'YES' ? "BULLISH 🟢" : (selectedOption === 'NO' ? "BEARISH 🔴" : "WATCHING 🔮");
     
-    // Ticker updated to $pulymerket
     const tweetText = `Merket Check: "${merket.question}"\n\nSentiment: ${yesProb}% YES\nMy Verdict: ${sentiment}\n\nJoin the merket:\n${shortLink}\n\n$pulymerket`;
     
     const xIntentUrl = `https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`;
@@ -172,7 +171,7 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
   return (
     <div 
       onClick={() => onOpen(merket)}
-      className="bg-white border-4 border-black rounded-3xl p-6 shadow-2xl transition-all hover:shadow-[0_20px_40px_rgba(0,0,0,0.1)] hover:-translate-y-1 cursor-pointer flex flex-col group"
+      className="bg-white border-4 border-black rounded-3xl p-6 shadow-2xl transition-all hover:shadow-[0_20px_40px_rgba(0,0,0,0.1)] hover:-translate-y-1 cursor-pointer flex flex-col group h-full"
     >
       <div className="flex items-start gap-4 mb-6">
         <div className="w-14 h-14 rounded-2xl border-4 border-black bg-blue-600 overflow-hidden shrink-0 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
@@ -188,7 +187,7 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
         </div>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6 mt-auto">
           <div className="flex justify-between items-end mb-2">
             <span className="text-3xl font-black text-blue-600">{yesPercentage}% <span className="text-[10px] uppercase text-gray-400 tracking-widest">Yes</span></span>
             <span className="text-3xl font-black text-red-500">{100-yesPercentage}% <span className="text-[10px] uppercase text-gray-400 tracking-widest">No</span></span>
@@ -231,6 +230,7 @@ const CreateMerketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubm
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
+        // Compress/Check size if possible, but for now simple FileReader
         const reader = new FileReader();
         reader.onloadend = () => setImgBase64(reader.result as string);
         reader.readAsDataURL(file);
@@ -257,7 +257,7 @@ const CreateMerketModal: React.FC<{ isOpen: boolean; onClose: () => void; onSubm
                         />
                     </div>
                     <div>
-                        <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">Image (Upload)</label>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-widest">Image (Keep it small)</label>
                         <div 
                           onClick={() => fileInputRef.current?.click()}
                           className="w-full h-32 border-4 border-black border-dashed rounded-2xl bg-blue-50 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-100 relative overflow-hidden"
@@ -289,10 +289,10 @@ const PredictionMerket: React.FC = () => {
         const data = await getMerkets();
         setMerkets(data);
         
-        // Deep linking support for both ID and Slug
+        // Deep linking support
         const hash = window.location.hash;
-        if (hash.startsWith('#m-')) {
-            const query = hash.replace('#m-', '');
+        if (hash) {
+            const query = hash.replace('#', '');
             const target = data.find(m => m.id === query || slugify(m.question) === query);
             if (target) setSelectedMerket(target);
         }
@@ -303,20 +303,25 @@ const PredictionMerket: React.FC = () => {
 
   const handleVote = async (id: string, option: 'YES' | 'NO') => {
     setActionLoading(true);
-    await voteMerket(id, option); 
-    const updated = await getMerkets();
-    setMerkets(updated);
-    const current = updated.find(m => m.id === id);
-    if (current) setSelectedMerket(current);
+    try {
+        await voteMerket(id, option); 
+        await fetchData();
+        const current = merkets.find(m => m.id === id);
+        if (current) setSelectedMerket(current);
+    } catch (e) { alert("Vote failed"); }
     setActionLoading(false);
   };
 
   const handleCreate = async (q: string, img?: string) => {
     setActionLoading(true);
-    await createMerket(q, img);
-    await fetchData();
+    try {
+        await createMerket(q, img);
+        await fetchData();
+        setIsCreateOpen(false);
+    } catch (e: any) {
+        alert(e.message || "Failed to create merket");
+    }
     setActionLoading(false);
-    setIsCreateOpen(false);
   };
 
   const closeMerket = () => {
@@ -351,7 +356,7 @@ const PredictionMerket: React.FC = () => {
                         merket={m} 
                         onOpen={(target) => { 
                             setSelectedMerket(target);
-                            window.location.hash = `m-${slugify(target.question)}`; 
+                            window.location.hash = slugify(target.question); 
                         }} 
                         onVote={handleVote} 
                     />
