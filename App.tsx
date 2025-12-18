@@ -73,41 +73,28 @@ const AboutSection = () => (
 );
 
 function App() {
-  const [path, setPath] = useState(window.location.pathname);
+  const [hash, setHash] = useState(window.location.hash);
   const logoUrl = "https://pbs.twimg.com/media/G8b8OArXYAAkpHf?format=jpg&name=medium";
 
-  // Handle URL changes (history API)
   useEffect(() => {
-    const handleLocationChange = () => {
-      setPath(window.location.pathname);
+    const handleHashChange = () => {
+      setHash(window.location.hash);
     };
 
-    window.addEventListener('popstate', handleLocationChange);
-    
-    // Custom event listener for internal navigations
-    window.addEventListener('app-navigate', handleLocationChange);
-
-    return () => {
-      window.removeEventListener('popstate', handleLocationChange);
-      window.removeEventListener('app-navigate', handleLocationChange);
-    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  const navigateTo = (newPath: string) => {
-    window.history.pushState({}, '', newPath);
-    window.dispatchEvent(new Event('app-navigate'));
-  };
-
   const goToLanding = () => {
-    navigateTo('/');
-    window.location.hash = ''; // Clear hash
+    window.location.hash = '';
   };
 
   const goToTerminal = () => {
-    navigateTo('/live-market');
+    window.location.hash = 'live-market';
   };
 
-  const isTerminal = path === '/live-market';
+  // Check if hash starts with live-market (handles both #live-market and #live-market:slug)
+  const isTerminal = hash.startsWith('#live-market');
 
   return (
     <div className="min-h-screen text-white font-sans selection:bg-white selection:text-blue-600">
@@ -132,7 +119,7 @@ function App() {
                 <div className="bg-black/20 p-4 md:p-8 rounded-[3rem] border-4 border-white/10 shadow-2xl backdrop-blur-sm">
                    <div className="flex items-center gap-3 mb-10 text-white/50 font-mono text-[10px] uppercase tracking-[0.3em] overflow-hidden whitespace-nowrap">
                       <Terminal size={12} className="shrink-0" />
-                      Connection: Secure // Provider: PulyOracle_v5 // Status: Live // Path: {path}
+                      Connection: Secure // Provider: PulyOracle_v5 // Status: Live // Path: TERMINAL_HASH_MODE
                    </div>
                    <PredictionMerket />
                 </div>
@@ -150,7 +137,7 @@ function App() {
                 <span className="font-black italic text-white text-2xl drop-shadow-md uppercase tracking-tighter">PULYMERKET</span>
             </div>
             <p className="mb-2 font-black uppercase tracking-widest text-sm italic">© 2025 THE SOLE SURVIVOR</p>
-            <div className="text-xs opacity-50 mt-4 font-mono">ROUTING_ACTIVE // TERMINAL_READY</div>
+            <div className="text-xs opacity-50 mt-4 font-mono">ROUTING_STABLE // HASH_LOCK_ENABLED</div>
         </div>
       </footer>
     </div>

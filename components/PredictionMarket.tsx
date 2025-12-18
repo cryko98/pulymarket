@@ -160,9 +160,9 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
         }
     }
 
-    // Open Twitter Intent
+    // Open Twitter Intent - Using 404-safe hash routing
     const slug = slugify(merket.question);
-    const shortLink = `${window.location.origin}/live-market#${slug}`;
+    const shortLink = `${window.location.origin}/#live-market:${slug}`;
     const sentiment = currentVote === 'YES' ? "BULLISH 🟢" : (currentVote === 'NO' ? "BEARISH 🔴" : "WATCHING 🔮");
     const tweetText = `Merket Check: "${merket.question}"\n\nSentiment: ${yesProb}% YES\nMy Verdict: ${sentiment}\n\nJoin the merket:\n${shortLink}\n\n$pulymerket`;
     
@@ -267,7 +267,7 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
   }, [merket.id]);
 
   return (
-    <div onClick={() => onOpen(merket)} className="bg-white border-4 border-black rounded-[2.5rem] p-8 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] transition-all hover:-translate-y-2 hover:translate-x-1 hover:shadow-[16px_16px_0px_0px_rgba(0,0,0,1)] cursor-pointer flex flex-col group h-full relative overflow-hidden">
+    <div onClick={() => onOpen(merket)} className="bg-white border-4 border-black rounded-[2.5rem] p-8 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)] transition-all hover:-translate-y-2 hover:translate-x-1 hover:shadow-[16px_16px_0px_0px_rgba(0,0,0,1)] cursor-pointer flex flex-col group h-full relative overflow-hidden text-left">
       
       <div className={`absolute -top-6 -right-6 w-20 h-20 rotate-45 border-4 border-black transition-colors ${currentVote === 'YES' ? 'bg-green-500' : currentVote === 'NO' ? 'bg-red-500' : 'bg-blue-600'}`}></div>
 
@@ -275,7 +275,7 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
         <div className="w-16 h-16 rounded-2xl border-4 border-black bg-blue-600 overflow-hidden shrink-0 shadow-lg">
             <img src={merket.image || BRAND_LOGO} className="w-full h-full object-cover" alt="Merket" />
         </div>
-        <div className="flex-1 text-left">
+        <div className="flex-1">
             <h3 className="text-2xl font-black text-black leading-tight uppercase italic mb-2 tracking-tighter group-hover:text-blue-600 transition-colors">{merket.question}</h3>
             <div className="flex gap-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
               <span className="flex items-center gap-1"><Users size={12} /> {totalVotes} Votes</span>
@@ -364,10 +364,15 @@ const PredictionMerket: React.FC = () => {
     try {
         const data = await getMerkets();
         setMerkets(data);
-        const hash = window.location.hash.replace('#', '');
-        if (hash) {
-            const target = data.find(m => slugify(m.question) === hash || m.id === hash);
-            if (target) setSelectedMerket(target);
+        
+        // Safe hash parsing: #live-market:slug
+        const hash = window.location.hash;
+        if (hash.includes(':')) {
+            const slug = hash.split(':')[1];
+            if (slug) {
+                const target = data.find(m => slugify(m.question) === slug || m.id === slug);
+                if (target) setSelectedMerket(target);
+            }
         }
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
@@ -375,10 +380,13 @@ const PredictionMerket: React.FC = () => {
   useEffect(() => { 
     fetchData(); 
     const handleHashChange = () => {
-        const hash = window.location.hash.replace('#', '');
-        if (hash) {
-            const target = merkets.find(m => slugify(m.question) === hash || m.id === hash);
+        const hash = window.location.hash;
+        if (hash.includes(':')) {
+            const slug = hash.split(':')[1];
+            const target = merkets.find(m => slugify(m.question) === slug || m.id === slug);
             if (target) setSelectedMerket(target);
+        } else if (hash === '#live-market') {
+            setSelectedMerket(null);
         }
     };
     window.addEventListener('hashchange', handleHashChange);
@@ -402,7 +410,7 @@ const PredictionMerket: React.FC = () => {
     <section id="merkets">
       <div className="container mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-center mb-16 gap-6 text-center md:text-left">
-            <h2 className="text-5xl md:text-7xl font-black text-white flex items-center justify-center md:justify-start gap-5 tracking-tighter text-outline italic uppercase text-left">
+            <h2 className="text-5xl md:text-7xl font-black text-white flex items-center justify-center md:justify-start gap-5 tracking-tighter text-outline italic uppercase">
                 <BarChart3 size={56} className="text-white" /> ACTIVE TERMINALS
             </h2>
             <button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-4 bg-white text-blue-600 px-12 py-5 rounded-full shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] font-black text-2xl border-4 border-black hover:translate-y-1 hover:shadow-none transition-all">
@@ -415,14 +423,14 @@ const PredictionMerket: React.FC = () => {
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12">
                 {merkets.map(m => (
-                    <MerketCard key={m.id} merket={m} onOpen={(target) => { setSelectedMerket(target); window.location.hash = slugify(target.question); }} />
+                    <MerketCard key={m.id} merket={m} onOpen={(target) => { setSelectedMerket(target); window.location.hash = `live-market:${slugify(target.question)}`; }} />
                 ))}
             </div>
         )}
       </div>
 
       <CreateMerketModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} onSubmit={async (q, d, i) => { setActionLoading(true); await createMerket(q, d, i); await fetchData(); setIsCreateOpen(false); setActionLoading(false); }} isCreating={actionLoading} />
-      {selectedMerket && <MerketDetailModal merket={selectedMerket} onClose={() => { setSelectedMerket(null); window.location.hash = ''; }} onVote={handleVote} isVoting={actionLoading} />}
+      {selectedMerket && <MerketDetailModal merket={selectedMerket} onClose={() => { setSelectedMerket(null); window.location.hash = 'live-market'; }} onVote={handleVote} isVoting={actionLoading} />}
     </section>
   );
 };
