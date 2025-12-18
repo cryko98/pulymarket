@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getMerkets, createMerket, voteMerket, getUserVote, getComments, postComment } from '../services/marketService';
 import { PredictionMerket as MerketType, MerketComment } from '../types';
-import { Plus, Users, Loader2, X, BarChart3, ChevronRight, Share2, Upload, MessageSquare, Send, Twitter } from 'lucide-react';
+import { Plus, Users, Loader2, X, BarChart3, ChevronRight, Share2, Upload, MessageSquare, Send, Twitter, CheckCircle2 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
 const BRAND_LOGO = "https://pbs.twimg.com/media/G8b8OArXYAAkpHf?format=jpg&name=medium";
@@ -133,16 +133,15 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
   const totalVotes = merket.yesVotes + merket.noVotes;
   const yesProb = totalVotes === 0 ? 50 : Math.round((merket.yesVotes / totalVotes) * 100);
 
+  const handleVoteSubmit = async () => {
+    if (!selectedOption || selectedOption === currentVote) return;
+    await onVote(merket.id, selectedOption);
+  };
+
   const handleTweetAction = async () => {
-    if (!selectedOption) return;
     setIsCapturing(true);
     
-    // 1. Vote first if different from current
-    if (selectedOption !== currentVote) {
-        await onVote(merket.id, selectedOption);
-    }
-
-    // 2. Capture and Download Image
+    // Capture and Download Image
     if (captureRef.current) {
         try {
             const canvas = await html2canvas(captureRef.current, {
@@ -161,10 +160,10 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
         }
     }
 
-    // 3. Open Twitter Intent
+    // Open Twitter Intent
     const slug = slugify(merket.question);
     const shortLink = `${window.location.origin}/#${slug}`;
-    const sentiment = selectedOption === 'YES' ? "BULLISH 🟢" : (selectedOption === 'NO' ? "BEARISH 🔴" : "WATCHING 🔮");
+    const sentiment = currentVote === 'YES' ? "BULLISH 🟢" : (currentVote === 'NO' ? "BEARISH 🔴" : "WATCHING 🔮");
     const tweetText = `Merket Check: "${merket.question}"\n\nSentiment: ${yesProb}% YES\nMy Verdict: ${sentiment}\n\nJoin the merket:\n${shortLink}\n\n$pulymerket`;
     
     window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`, '_blank');
@@ -181,7 +180,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
         <div className="bg-white w-full rounded-[3rem] overflow-hidden shadow-2xl flex flex-col md:flex-row border-4 border-black h-full max-h-[85vh]">
           <div className="flex-1 flex flex-col h-full overflow-hidden border-b md:border-b-0 md:border-r-4 border-black">
             <div ref={captureRef} className="p-8 overflow-y-auto custom-scroll flex-1 bg-white">
-                <div className="flex items-center gap-6 mb-8">
+                <div className="flex items-center gap-6 mb-8 text-left">
                   <div className="w-20 h-20 rounded-3xl bg-blue-600 border-4 border-black flex items-center justify-center overflow-hidden shrink-0 shadow-xl">
                      <img src={merket.image || BRAND_LOGO} className="w-full h-full object-cover" alt="Merket" />
                   </div>
@@ -197,7 +196,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-4">
                     <div className="space-y-6">
                         <MerketChart />
-                        <div className="bg-blue-600 text-white p-6 rounded-3xl border-4 border-black shadow-lg transform -rotate-1">
+                        <div className="bg-blue-600 text-white p-6 rounded-3xl border-4 border-black shadow-lg transform -rotate-1 text-left">
                             <p className="text-xl font-black italic">"{merket.description}"</p>
                         </div>
                     </div>
@@ -210,35 +209,45 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
           </div>
 
           <div className="w-full md:w-80 bg-gray-100 p-8 flex flex-col justify-center border-t-4 md:border-t-0 border-black shrink-0">
-            <h3 className="font-black text-3xl uppercase italic tracking-tighter mb-10 text-black text-center">POSITION</h3>
-            <div className="flex flex-col gap-6 mb-10">
+            <h3 className="font-black text-3xl uppercase italic tracking-tighter mb-6 text-black text-center">POSITION</h3>
+            
+            <div className="flex flex-col gap-4 mb-6">
               <button 
                 onClick={() => setSelectedOption('YES')} 
-                className={`w-full py-6 rounded-2xl font-black text-2xl transition-all border-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${selectedOption === 'YES' ? 'bg-green-500 text-white border-black' : 'bg-white text-green-600 border-gray-200'}`}
+                className={`w-full py-5 rounded-2xl font-black text-2xl transition-all border-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none flex items-center justify-center gap-2 ${selectedOption === 'YES' ? 'bg-green-500 text-white border-black' : 'bg-white text-green-600 border-gray-200'}`}
               >
-                YES ({yesProb}%)
+                YES ({yesProb}%) {currentVote === 'YES' && <CheckCircle2 size={20} />}
               </button>
               <button 
                 onClick={() => setSelectedOption('NO')} 
-                className={`w-full py-6 rounded-2xl font-black text-2xl transition-all border-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none ${selectedOption === 'NO' ? 'bg-red-500 text-white border-black' : 'bg-white text-red-600 border-gray-200'}`}
+                className={`w-full py-5 rounded-2xl font-black text-2xl transition-all border-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none flex items-center justify-center gap-2 ${selectedOption === 'NO' ? 'bg-red-500 text-white border-black' : 'bg-white text-red-600 border-gray-200'}`}
               >
-                NO ({100-yesProb}%)
+                NO ({100-yesProb}%) {currentVote === 'NO' && <CheckCircle2 size={20} />}
               </button>
             </div>
+
+            {/* VOTE SUBMIT BUTTON */}
+            <button 
+              disabled={!selectedOption || selectedOption === currentVote || isVoting}
+              onClick={handleVoteSubmit}
+              className="w-full bg-black text-white font-black py-4 rounded-2xl border-b-4 border-gray-800 shadow-xl mb-4 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-30 disabled:hover:scale-100 flex items-center justify-center gap-2"
+            >
+              {isVoting ? <Loader2 className="animate-spin" /> : 'SUBMIT VOTE'}
+            </button>
             
-            <div className="mt-auto">
+            <div className="mt-4 pt-4 border-t-2 border-dashed border-gray-300">
                 <button 
-                  disabled={!selectedOption || isVoting || isCapturing} 
+                  disabled={!currentVote || isCapturing} 
                   onClick={handleTweetAction} 
-                  className="w-full bg-blue-600 text-white font-black py-6 rounded-full border-b-8 border-blue-900 shadow-2xl flex items-center justify-center gap-3 text-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-70"
+                  className="w-full bg-blue-600 text-white font-black py-4 rounded-full border-b-8 border-blue-900 shadow-2xl flex items-center justify-center gap-3 text-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
                 >
-                  {isVoting || isCapturing ? (
-                    <><Loader2 className="animate-spin" /> {isCapturing ? 'GENERATING...' : 'VOTING...'}</>
+                  {isCapturing ? (
+                    <><Loader2 className="animate-spin" /> GENERATING...</>
                   ) : (
-                    <><Twitter size={24}/> TWEET MERKET</>
+                    <><Twitter size={20}/> TWEET MERKET</>
                   )}
                 </button>
-                <p className="text-center text-[10px] font-black text-gray-400 mt-4 uppercase tracking-[0.2em]">Validated by PulyOracle</p>
+                <p className="text-center text-[9px] font-black text-gray-400 mt-4 uppercase tracking-[0.2em]">Live Data: Solana Mainnet</p>
             </div>
           </div>
         </div>
@@ -385,7 +394,7 @@ const PredictionMerket: React.FC = () => {
     <section id="merkets">
       <div className="container mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-center mb-16 gap-6 text-center md:text-left">
-            <h2 className="text-5xl md:text-7xl font-black text-white flex items-center justify-center md:justify-start gap-5 tracking-tighter text-outline italic uppercase">
+            <h2 className="text-5xl md:text-7xl font-black text-white flex items-center justify-center md:justify-start gap-5 tracking-tighter text-outline italic uppercase text-left">
                 <BarChart3 size={56} className="text-white" /> ACTIVE TERMINALS
             </h2>
             <button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-4 bg-white text-blue-600 px-12 py-5 rounded-full shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] font-black text-2xl border-4 border-black hover:translate-y-1 hover:shadow-none transition-all">
