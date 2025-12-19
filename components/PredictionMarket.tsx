@@ -174,6 +174,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
                 backgroundColor: '#ffffff',
                 scale: 2,
                 logging: false,
+                ignoreElements: (element) => element.hasAttribute('data-html2canvas-ignore'),
             });
             const dataUrl = canvas.toDataURL('image/png');
             const link = document.createElement('a');
@@ -197,21 +198,24 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-2 md:p-4 animate-in fade-in duration-300">
       <div className="relative w-full max-w-7xl h-full max-h-[95vh] md:max-h-[92vh] overflow-hidden">
-        <button onClick={onClose} className="absolute top-2 right-2 md:top-6 md:right-6 z-[210] p-2 md:p-3 bg-white text-black border-4 border-black rounded-full shadow-lg hover:scale-110 active:scale-95 transition-all">
+        {/* Close button - ignored by capture */}
+        <button data-html2canvas-ignore onClick={onClose} className="absolute top-2 right-2 md:top-6 md:right-6 z-[210] p-2 md:p-3 bg-white text-black border-4 border-black rounded-full shadow-lg hover:scale-110 active:scale-95 transition-all">
           <X size={28} />
         </button>
 
-        <div className="bg-white w-full h-full rounded-[2.5rem] md:rounded-[4rem] overflow-hidden shadow-2xl flex flex-col md:flex-row border-4 border-black">
-          {/* Main Content Area - Full Vertical Stack */}
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden border-b md:border-b-0 md:border-r-4 border-black">
-            <div ref={captureRef} className="p-6 md:p-12 overflow-y-auto custom-scroll flex-1 bg-white">
+        <div className="bg-white w-full h-full rounded-[2.5rem] md:rounded-[4rem] overflow-hidden shadow-2xl flex border-4 border-black">
+          {/* Main Container to Capture */}
+          <div ref={captureRef} className="flex-1 flex flex-col md:flex-row bg-white min-h-0 w-full overflow-hidden">
+            
+            {/* Left Content Area */}
+            <div className="flex-1 flex flex-col min-h-0 overflow-y-auto custom-scroll border-b md:border-b-0 md:border-r-4 border-black p-6 md:p-12">
                 {/* Header Info */}
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 md:gap-10 mb-8 md:mb-12 text-center sm:text-left">
                   <div className="w-20 h-20 md:w-32 md:h-32 rounded-3xl bg-blue-600 border-4 border-black flex items-center justify-center overflow-hidden shrink-0 shadow-2xl">
                      <img src={merket.image || BRAND_LOGO} className="w-full h-full object-cover" alt="Merket" />
                   </div>
                   <div className="text-black flex-1">
-                    <h2 className="text-3xl md:text-6xl font-black leading-tight uppercase italic tracking-tighter mb-4">{merket.question}</h2>
+                    <h2 className="text-3xl md:text-5xl font-black leading-tight uppercase italic tracking-tighter mb-4">{merket.question}</h2>
                     <div className="flex flex-wrap justify-center sm:justify-start items-center gap-4 text-gray-500 font-black text-xs md:text-sm uppercase tracking-widest">
                       <span className="flex items-center gap-2 text-black bg-gray-100 px-4 py-1.5 rounded-full border-2 border-black/5"><Users size={18}/> {totalVotes} TERMINALS CONNECTED</span>
                       <span className="flex items-center gap-2 text-blue-600"><BarChart3 size={18}/> PULY ORACLE VERIFIED</span>
@@ -236,56 +240,58 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
                         <p className="text-xl md:text-3xl font-black italic leading-tight">"{merket.description}"</p>
                     </div>
                     
-                    {/* 3. Full Width Comments */}
-                    <div className="w-full bg-gray-50 p-6 md:p-10 rounded-[3rem] border-4 border-black border-dashed">
+                    {/* 3. Full Width Comments - Ignored by capture usually but can stay if small */}
+                    <div data-html2canvas-ignore className="w-full bg-gray-50 p-6 md:p-10 rounded-[3rem] border-4 border-black border-dashed">
                         <CommentSection marketId={merket.id} />
                     </div>
                 </div>
             </div>
-          </div>
 
-          {/* Voting Side Panel */}
-          <div className="w-full md:w-96 bg-gray-100 p-8 md:p-12 flex flex-col justify-center shrink-0 border-t-4 md:border-t-0 border-black">
-            <h3 className="font-black text-3xl md:text-4xl uppercase italic tracking-tighter mb-8 text-black text-center">OPEN POSITION</h3>
-            
-            <div className="flex md:flex-col gap-4 mb-8">
-              <button 
-                onClick={() => setSelectedOption('YES')} 
-                className={`flex-1 md:w-full py-6 rounded-3xl font-black text-2xl md:text-3xl transition-all border-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none flex items-center justify-center gap-3 ${selectedOption === 'YES' ? 'bg-green-500 text-white border-black' : 'bg-white text-green-600 border-gray-200'}`}
-              >
-                YES ({yesProb}%)
-              </button>
-              <button 
-                onClick={() => setSelectedOption('NO')} 
-                className={`flex-1 md:w-full py-6 rounded-3xl font-black text-2xl md:text-3xl transition-all border-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none flex items-center justify-center gap-3 ${selectedOption === 'NO' ? 'bg-red-500 text-white border-black' : 'bg-white text-red-600 border-gray-200'}`}
-              >
-                NO ({100-yesProb}%)
-              </button>
-            </div>
+            {/* Voting Side Panel */}
+            <div className="w-full md:w-96 bg-gray-100 p-8 md:p-12 flex flex-col justify-center shrink-0">
+                <h3 className="font-black text-3xl md:text-4xl uppercase italic tracking-tighter mb-8 text-black text-center">OPEN POSITION</h3>
+                
+                <div className="flex md:flex-col gap-4 mb-8">
+                  <button 
+                    onClick={() => setSelectedOption('YES')} 
+                    className={`flex-1 md:w-full py-6 rounded-3xl font-black text-2xl md:text-3xl transition-all border-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none flex items-center justify-center gap-3 ${selectedOption === 'YES' ? 'bg-green-500 text-white border-black' : 'bg-white text-green-600 border-gray-200'}`}
+                  >
+                    YES ({yesProb}%)
+                  </button>
+                  <button 
+                    onClick={() => setSelectedOption('NO')} 
+                    className={`flex-1 md:w-full py-6 rounded-3xl font-black text-2xl md:text-3xl transition-all border-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none flex items-center justify-center gap-3 ${selectedOption === 'NO' ? 'bg-red-500 text-white border-black' : 'bg-white text-red-600 border-gray-200'}`}
+                  >
+                    NO ({100-yesProb}%)
+                  </button>
+                </div>
 
-            <button 
-              disabled={!selectedOption || selectedOption === currentVote || isVoting}
-              onClick={handleVoteSubmit}
-              className="w-full bg-black text-white font-black py-5 rounded-3xl border-b-8 border-gray-800 shadow-2xl mb-6 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-3 text-xl"
-            >
-              {isVoting ? <Loader2 className="animate-spin" /> : 'CONFIRM POSITION'}
-            </button>
-            
-            <div className="mt-6 pt-8 border-t-4 border-dashed border-gray-300">
                 <button 
-                  disabled={!currentVote || isCapturing} 
-                  onClick={handleTweetAction} 
-                  className="w-full bg-blue-600 text-white font-black py-5 rounded-full border-b-8 border-blue-900 shadow-2xl flex items-center justify-center gap-3 text-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                  disabled={!selectedOption || selectedOption === currentVote || isVoting}
+                  onClick={handleVoteSubmit}
+                  className="w-full bg-black text-white font-black py-5 rounded-3xl border-b-8 border-gray-800 shadow-2xl mb-6 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-3 text-xl"
                 >
-                  {isCapturing ? (
-                    <><Loader2 className="animate-spin" /> BROADCASTING...</>
-                  ) : (
-                    <><Twitter size={24}/> TWEET SIGNAL</>
-                  )}
+                  {isVoting ? <Loader2 className="animate-spin" /> : 'CONFIRM POSITION'}
                 </button>
-                <div className="flex justify-between items-center mt-6 px-2">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Network: Solana</p>
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Mode: Live</p>
+                
+                <div className="mt-6 pt-8 border-t-4 border-dashed border-gray-300">
+                    <div data-html2canvas-ignore>
+                        <button 
+                          disabled={!currentVote || isCapturing} 
+                          onClick={handleTweetAction} 
+                          className="w-full bg-blue-600 text-white font-black py-5 rounded-full border-b-8 border-blue-900 shadow-2xl flex items-center justify-center gap-3 text-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 mb-6"
+                        >
+                          {isCapturing ? (
+                            <><Loader2 className="animate-spin" /> BROADCASTING...</>
+                          ) : (
+                            <><Twitter size={24}/> TWEET SIGNAL</>
+                          )}
+                        </button>
+                    </div>
+                    <div className="flex justify-between items-center px-2">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Network: Solana</p>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Mode: Live</p>
+                    </div>
                 </div>
             </div>
           </div>
