@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getMerkets, createMerket, voteMerket, getUserVote, getComments, postComment } from '../services/marketService';
 import { PredictionMerket as MerketType, MerketComment } from '../types';
-import { Plus, Users, Loader2, X, BarChart3, ChevronRight, Share2, Upload, MessageSquare, Send, Twitter, CheckCircle2, TrendingUp, Clock } from 'lucide-react';
+import { Plus, Loader2, X, BarChart3, ChevronRight, Share2, Upload, MessageSquare, Send, Twitter, CheckCircle2, TrendingUp, Clock } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
 const BRAND_LOGO = "https://pbs.twimg.com/media/G8b8OArXYAAkpHf?format=jpg&name=medium";
@@ -217,7 +217,6 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
                   <div className="text-black flex-1">
                     <h2 className="text-3xl md:text-5xl font-black leading-tight uppercase italic tracking-tighter mb-4">{merket.question}</h2>
                     <div className="flex flex-wrap justify-center sm:justify-start items-center gap-4 text-gray-500 font-black text-xs md:text-sm uppercase tracking-widest">
-                      <span className="flex items-center gap-2 text-black bg-gray-100 px-4 py-1.5 rounded-full border-2 border-black/5"><Users size={18}/> {totalVotes} TERMINALS CONNECTED</span>
                       <span className="flex items-center gap-2 text-blue-600"><BarChart3 size={18}/> PULY ORACLE VERIFIED</span>
                     </div>
                   </div>
@@ -323,7 +322,6 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
         <div className="flex-1 min-w-0">
             <h3 className="text-lg md:text-2xl font-black text-black leading-tight uppercase italic mb-1 md:mb-2 tracking-tighter group-hover:text-blue-600 transition-colors truncate sm:whitespace-normal">{merket.question}</h3>
             <div className="flex flex-wrap gap-2 md:gap-4 text-[8px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              <span className="flex items-center gap-1"><Users size={10} /> {totalVotes}</span>
               <span className="flex items-center gap-1 text-blue-500"><MessageSquare size={10} /> {commentCount}</span>
               {currentVote && (
                 <span className={`px-2 rounded-md text-white whitespace-nowrap ${currentVote === 'YES' ? 'bg-green-500' : 'bg-red-500'}`}>
