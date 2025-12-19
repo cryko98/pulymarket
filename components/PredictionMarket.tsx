@@ -33,7 +33,6 @@ const MerketChart: React.FC<{ yes: number; no: number }> = ({ yes, no }) => {
   const isBearish = no > yes;
   const color = isBullish ? '#22c55e' : (isBearish ? '#ef4444' : '#3b82f6');
   
-  // Dynamic path data based on sentiment
   const pathData = isBullish 
     ? "M0,140 C50,150 100,180 150,100 C200,20 250,150 350,50 C370,30 390,40 400,20" 
     : isBearish 
@@ -198,18 +197,14 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-2 md:p-4 animate-in fade-in duration-300">
       <div className="relative w-full max-w-7xl h-full max-h-[95vh] md:max-h-[92vh] overflow-hidden">
-        {/* Close button - ignored by capture */}
         <button data-html2canvas-ignore onClick={onClose} className="absolute top-2 right-2 md:top-6 md:right-6 z-[210] p-2 md:p-3 bg-white text-black border-4 border-black rounded-full shadow-lg hover:scale-110 active:scale-95 transition-all">
           <X size={28} />
         </button>
 
         <div className="bg-white w-full h-full rounded-[2.5rem] md:rounded-[4rem] overflow-hidden shadow-2xl flex border-4 border-black">
-          {/* Main Container to Capture */}
           <div ref={captureRef} className="flex-1 flex flex-col md:flex-row bg-white min-h-0 w-full overflow-hidden">
             
-            {/* Left Content Area */}
             <div className="flex-1 flex flex-col min-h-0 overflow-y-auto custom-scroll border-b md:border-b-0 md:border-r-4 border-black p-6 md:p-12">
-                {/* Header Info */}
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 md:gap-10 mb-8 md:mb-12 text-center sm:text-left">
                   <div className="w-20 h-20 md:w-32 md:h-32 rounded-3xl bg-blue-600 border-4 border-black flex items-center justify-center overflow-hidden shrink-0 shadow-2xl">
                      <img src={merket.image || BRAND_LOGO} className="w-full h-full object-cover" alt="Merket" />
@@ -217,20 +212,18 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
                   <div className="text-black flex-1">
                     <h2 className="text-3xl md:text-5xl font-black leading-tight uppercase italic tracking-tighter mb-4">{merket.question}</h2>
                     <div className="flex flex-wrap justify-center sm:justify-start items-center gap-4 text-gray-500 font-black text-xs md:text-sm uppercase tracking-widest">
+                      <span className="flex items-center gap-2 text-black bg-gray-100 px-4 py-1.5 rounded-full border-2 border-black/5"><CheckCircle2 size={18}/> {totalVotes} VOTES REGISTERED</span>
                       <span className="flex items-center gap-2 text-blue-600"><BarChart3 size={18}/> PULY ORACLE VERIFIED</span>
                     </div>
                   </div>
                 </div>
                 
-                {/* Full Width Components Stack */}
                 <div className="space-y-8 md:space-y-12">
-                    {/* 1. Full Width Chart */}
                     <div className="w-full">
                         <h4 className="text-[10px] font-black uppercase text-blue-600 mb-2 tracking-[0.2em]">Live Volatility Index</h4>
                         <MerketChart yes={merket.yesVotes} no={merket.noVotes} />
                     </div>
                     
-                    {/* 2. Full Width Description */}
                     <div className="w-full bg-blue-600 text-white p-8 md:p-12 rounded-[2.5rem] border-4 border-black shadow-xl transform -rotate-1 relative overflow-hidden group">
                         <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:rotate-12 transition-transform">
                             <BarChart3 size={120} />
@@ -239,14 +232,12 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
                         <p className="text-xl md:text-3xl font-black italic leading-tight">"{merket.description}"</p>
                     </div>
                     
-                    {/* 3. Full Width Comments - Ignored by capture usually but can stay if small */}
                     <div data-html2canvas-ignore className="w-full bg-gray-50 p-6 md:p-10 rounded-[3rem] border-4 border-black border-dashed">
                         <CommentSection marketId={merket.id} />
                     </div>
                 </div>
             </div>
 
-            {/* Voting Side Panel */}
             <div className="w-full md:w-96 bg-gray-100 p-8 md:p-12 flex flex-col justify-center shrink-0">
                 <h3 className="font-black text-3xl md:text-4xl uppercase italic tracking-tighter mb-8 text-black text-center">OPEN POSITION</h3>
                 
@@ -322,6 +313,7 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
         <div className="flex-1 min-w-0">
             <h3 className="text-lg md:text-2xl font-black text-black leading-tight uppercase italic mb-1 md:mb-2 tracking-tighter group-hover:text-blue-600 transition-colors truncate sm:whitespace-normal">{merket.question}</h3>
             <div className="flex flex-wrap gap-2 md:gap-4 text-[8px] md:text-[10px] font-black text-gray-400 uppercase tracking-widest">
+              <span className="flex items-center gap-1"><CheckCircle2 size={10} /> {totalVotes} VOTES</span>
               <span className="flex items-center gap-1 text-blue-500"><MessageSquare size={10} /> {commentCount}</span>
               {currentVote && (
                 <span className={`px-2 rounded-md text-white whitespace-nowrap ${currentVote === 'YES' ? 'bg-green-500' : 'bg-red-500'}`}>
@@ -409,7 +401,6 @@ const PredictionMerket: React.FC = () => {
         const data = await getMerkets();
         setMerkets(data);
         
-        // Safe hash parsing: #live-market:slug
         const hash = window.location.hash;
         if (hash.includes(':')) {
             const slug = hash.split(':')[1];
@@ -469,7 +460,6 @@ const PredictionMerket: React.FC = () => {
             </button>
         </div>
 
-        {/* Sort Tabs */}
         <div className="flex items-center gap-2 mb-8 bg-black/20 p-1.5 rounded-2xl w-fit mx-auto md:mx-0 border-4 border-black">
             <button 
                 onClick={() => setSortBy('trending')}
