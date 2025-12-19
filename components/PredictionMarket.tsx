@@ -2,8 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getMerkets, createMerket, voteMerket, getUserVote, getComments, postComment } from '../services/marketService';
 import { PredictionMerket as MerketType, MerketComment } from '../types';
-import { Plus, Loader2, X, BarChart3, ChevronRight, Share2, Upload, MessageSquare, Send, Twitter, CheckCircle2, TrendingUp, Clock } from 'lucide-react';
-import html2canvas from 'html2canvas';
+import { Plus, Loader2, X, BarChart3, ChevronRight, Upload, MessageSquare, Send, Twitter, CheckCircle2, TrendingUp, Clock, Users } from 'lucide-react';
 
 const BRAND_LOGO = "https://pbs.twimg.com/media/G8b8OArXYAAkpHf?format=jpg&name=medium";
 
@@ -152,8 +151,7 @@ const CommentSection: React.FC<{ marketId: string }> = ({ marketId }) => {
 const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onVote: (id: string, option: 'YES' | 'NO') => void; isVoting: boolean }> = ({ merket, onClose, onVote, isVoting }) => {
   const currentVote = getUserVote(merket.id);
   const [selectedOption, setSelectedOption] = useState<'YES' | 'NO' | null>(currentVote);
-  const [isCapturing, setIsCapturing] = useState(false);
-  const captureRef = useRef<HTMLDivElement>(null);
+  const [isSharing, setIsSharing] = useState(false);
   
   const totalVotes = merket.yesVotes + merket.noVotes;
   const yesProb = totalVotes === 0 ? 50 : Math.round((merket.yesVotes / totalVotes) * 100);
@@ -163,46 +161,31 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
     await onVote(merket.id, selectedOption);
   };
 
-  const handleTweetAction = async () => {
-    setIsCapturing(true);
-    
-    if (captureRef.current) {
-        try {
-            const canvas = await html2canvas(captureRef.current, {
-                useCORS: true,
-                backgroundColor: '#ffffff',
-                scale: 2,
-                logging: false,
-                ignoreElements: (element) => element.hasAttribute('data-html2canvas-ignore'),
-            });
-            const dataUrl = canvas.toDataURL('image/png');
-            const link = document.createElement('a');
-            link.download = `pulymerket-${slugify(merket.question)}.png`;
-            link.href = dataUrl;
-            link.click();
-        } catch (err) {
-            console.error("Failed to capture image", err);
-        }
-    }
-
+  const handleTweetAction = () => {
+    setIsSharing(true);
     const slug = slugify(merket.question);
-    const shortLink = `${window.location.origin}/#live-market:${slug}`;
+    
+    // We force the real domain for sharing to ensure previews work best
+    const origin = (import.meta as any).env?.VITE_PUBLIC_DOMAIN || window.location.origin;
+    const shareLink = `${origin}/${slug}`;
+    
     const sentiment = currentVote === 'YES' ? "BULLISH 🟢" : (currentVote === 'NO' ? "BEARISH 🔴" : "WATCHING 🔮");
-    const tweetText = `Merket Check: "${merket.question}"\n\nSentiment: ${yesProb}% YES\nMy Verdict: ${sentiment}\n\nJoin the merket:\n${shortLink}\n\n$pulymerket`;
+    const tweetText = `Merket Check: "${merket.question}"\n\nSentiment: ${yesProb}% YES\nMy Verdict: ${sentiment}\n\nJoin the merket:\n${shareLink}\n\n$pulymerket`;
     
     window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`, '_blank');
-    setIsCapturing(false);
+    
+    setTimeout(() => setIsSharing(false), 1000);
   };
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-2 md:p-4 animate-in fade-in duration-300">
       <div className="relative w-full max-w-7xl h-full max-h-[95vh] md:max-h-[92vh] overflow-hidden">
-        <button data-html2canvas-ignore onClick={onClose} className="absolute top-2 right-2 md:top-6 md:right-6 z-[210] p-2 md:p-3 bg-white text-black border-4 border-black rounded-full shadow-lg hover:scale-110 active:scale-95 transition-all">
+        <button onClick={onClose} className="absolute top-2 right-2 md:top-6 md:right-6 z-[210] p-2 md:p-3 bg-white text-black border-4 border-black rounded-full shadow-lg hover:scale-110 active:scale-95 transition-all">
           <X size={28} />
         </button>
 
         <div className="bg-white w-full h-full rounded-[2.5rem] md:rounded-[4rem] overflow-hidden shadow-2xl flex border-4 border-black">
-          <div ref={captureRef} className="flex-1 flex flex-col md:flex-row bg-white min-h-0 w-full overflow-hidden">
+          <div className="flex-1 flex flex-col md:flex-row bg-white min-h-0 w-full overflow-hidden">
             
             <div className="flex-1 flex flex-col min-h-0 overflow-y-auto custom-scroll border-b md:border-b-0 md:border-r-4 border-black p-6 md:p-12">
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 md:gap-10 mb-8 md:mb-12 text-center sm:text-left">
@@ -232,7 +215,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
                         <p className="text-xl md:text-3xl font-black italic leading-tight">"{merket.description}"</p>
                     </div>
                     
-                    <div data-html2canvas-ignore className="w-full bg-gray-50 p-6 md:p-10 rounded-[3rem] border-4 border-black border-dashed">
+                    <div className="w-full bg-gray-50 p-6 md:p-10 rounded-[3rem] border-4 border-black border-dashed">
                         <CommentSection marketId={merket.id} />
                     </div>
                 </div>
@@ -265,14 +248,14 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
                 </button>
                 
                 <div className="mt-6 pt-8 border-t-4 border-dashed border-gray-300">
-                    <div data-html2canvas-ignore>
+                    <div>
                         <button 
-                          disabled={!currentVote || isCapturing} 
+                          disabled={!currentVote || isSharing} 
                           onClick={handleTweetAction} 
                           className="w-full bg-blue-600 text-white font-black py-5 rounded-full border-b-8 border-blue-900 shadow-2xl flex items-center justify-center gap-3 text-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50 mb-6"
                         >
-                          {isCapturing ? (
-                            <><Loader2 className="animate-spin" /> BROADCASTING...</>
+                          {isSharing ? (
+                            <><Loader2 className="animate-spin" /> SHARING...</>
                           ) : (
                             <><Twitter size={24}/> TWEET SIGNAL</>
                           )}
