@@ -41,13 +41,13 @@ const MerketChart: React.FC<{ yes: number; no: number }> = ({ yes, no }) => {
     : "M0,100 C100,90 300,110 400,100";
 
   return (
-    <div className={`w-full h-32 md:h-40 relative overflow-hidden rounded-xl border-4 border-black mb-6 transition-colors duration-500 shadow-inner ${isBullish ? 'bg-green-50' : isBearish ? 'bg-red-50' : 'bg-blue-50'}`}>
+    <div className={`w-full h-40 md:h-64 relative overflow-hidden rounded-3xl border-4 border-black mb-6 transition-colors duration-500 shadow-inner ${isBullish ? 'bg-green-50' : isBearish ? 'bg-red-50' : 'bg-blue-50'}`}>
       <svg className="w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="none">
         <path 
           d={pathData} 
           fill="none" 
           stroke={color} 
-          strokeWidth="8" 
+          strokeWidth="10" 
           className="animate-[dash_1.5s_ease-out_forwards]" 
           strokeDasharray="1000" 
           strokeDashoffset="1000" 
@@ -55,9 +55,9 @@ const MerketChart: React.FC<{ yes: number; no: number }> = ({ yes, no }) => {
         />
         <style>{`@keyframes dash { to { stroke-dashoffset: 0; } }`}</style>
       </svg>
-      <div className="absolute top-2 right-3 flex items-center gap-1">
-        <div className={`w-2 h-2 rounded-full animate-pulse ${isBullish ? 'bg-green-500' : isBearish ? 'bg-red-500' : 'bg-blue-500'}`}></div>
-        <span className="text-[10px] font-black uppercase tracking-widest text-black/40">Live Sentiment</span>
+      <div className="absolute top-4 right-6 flex items-center gap-2">
+        <div className={`w-3 h-3 rounded-full animate-pulse ${isBullish ? 'bg-green-500' : isBearish ? 'bg-red-500' : 'bg-blue-500'}`}></div>
+        <span className="text-xs font-black uppercase tracking-widest text-black/40">Live Terminal Feedback</span>
       </div>
     </div>
   );
@@ -91,25 +91,25 @@ const CommentSection: React.FC<{ marketId: string }> = ({ marketId }) => {
   };
 
   return (
-    <div className="mt-8 pt-6 border-t-4 border-black/5">
-      <h3 className="text-xl font-black uppercase italic mb-4 flex items-center gap-2 text-black text-left">
-        <MessageSquare size={20} className="text-blue-600" /> Comments ({comments.length})
+    <div className="mt-8 pt-8 border-t-4 border-black/5">
+      <h3 className="text-2xl font-black uppercase italic mb-6 flex items-center gap-3 text-black text-left">
+        <MessageSquare size={24} className="text-blue-600" /> COMMUNITY FEED ({comments.length})
       </h3>
       
-      <form onSubmit={handleSubmit} className="mb-6 space-y-3 bg-blue-50/30 p-4 rounded-2xl border-2 border-dashed border-blue-200">
-        <div className="flex flex-col md:flex-row gap-3">
+      <form onSubmit={handleSubmit} className="mb-8 space-y-4 bg-blue-50/50 p-6 rounded-3xl border-4 border-black border-dashed">
+        <div className="flex flex-col md:flex-row gap-4">
             <input 
               type="text" 
               placeholder="Your handle..." 
-              className="md:w-1/3 bg-white border-2 border-black/10 rounded-lg p-2 text-sm font-bold text-black focus:border-blue-500 focus:outline-none"
+              className="md:w-1/4 bg-white border-4 border-black rounded-xl p-3 text-sm font-bold text-black focus:outline-none focus:ring-4 focus:ring-blue-400"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
             />
             <div className="flex-1 relative">
               <textarea 
-                placeholder="Spit facts here..." 
-                className="w-full bg-white border-2 border-black/10 rounded-xl p-3 text-sm font-bold text-black focus:border-blue-500 focus:outline-none h-12 resize-none"
+                placeholder="Share your prediction insight..." 
+                className="w-full bg-white border-4 border-black rounded-xl p-3 pr-14 text-sm font-bold text-black focus:outline-none focus:ring-4 focus:ring-blue-400 h-14 resize-none"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 required
@@ -117,9 +117,9 @@ const CommentSection: React.FC<{ marketId: string }> = ({ marketId }) => {
               <button 
                 type="submit" 
                 disabled={loading}
-                className="absolute right-2 top-1.5 p-2 bg-blue-600 text-white rounded-lg hover:scale-110 active:scale-95 transition-all shadow-md"
+                className="absolute right-2 top-2 p-2 bg-blue-600 text-white rounded-lg hover:scale-110 active:scale-95 transition-all shadow-md"
               >
-                {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                {loading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
               </button>
             </div>
         </div>
@@ -127,21 +127,21 @@ const CommentSection: React.FC<{ marketId: string }> = ({ marketId }) => {
 
       <div 
         ref={scrollRef}
-        className="space-y-4 max-h-[300px] overflow-y-auto pr-3 scrollbar-thin scrollbar-thumb-blue-600 scrollbar-track-transparent custom-scroll"
+        className="space-y-4 max-h-[400px] overflow-y-auto pr-3 custom-scroll"
       >
         {comments.length === 0 ? (
-          <div className="text-center py-10 opacity-30">
-            <MessageSquare size={48} className="mx-auto mb-2" />
-            <p className="text-black font-bold italic uppercase tracking-widest text-sm">Silence is bearish. Say something.</p>
+          <div className="text-center py-16 opacity-30 border-2 border-dashed border-black/10 rounded-3xl">
+            <MessageSquare size={64} className="mx-auto mb-4" />
+            <p className="text-black font-bold italic uppercase tracking-widest text-lg">No signals detected yet.</p>
           </div>
         ) : (
           comments.map(c => (
-            <div key={c.id} className="bg-white p-4 rounded-2xl border-2 border-black/5 shadow-sm transform transition-all hover:border-blue-100">
-              <div className="flex justify-between items-center mb-2">
-                <span className="font-black text-xs text-blue-600 uppercase tracking-tighter bg-blue-50 px-2 py-0.5 rounded-md">@{c.username}</span>
-                <span className="text-[10px] text-gray-400 font-mono font-bold">{new Date(c.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+            <div key={c.id} className="bg-white p-6 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transform transition-all hover:translate-x-1 hover:translate-y-1 hover:shadow-none">
+              <div className="flex justify-between items-center mb-3">
+                <span className="font-black text-sm text-blue-600 uppercase tracking-tighter bg-blue-50 px-3 py-1 rounded-lg">@{c.username}</span>
+                <span className="text-xs text-gray-400 font-mono font-bold">{new Date(c.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
               </div>
-              <p className="text-sm text-black font-bold leading-snug text-left">{c.content}</p>
+              <p className="text-base text-black font-bold leading-relaxed text-left">{c.content}</p>
             </div>
           ))
         )}
@@ -167,7 +167,6 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
   const handleTweetAction = async () => {
     setIsCapturing(true);
     
-    // Capture and Download Image
     if (captureRef.current) {
         try {
             const canvas = await html2canvas(captureRef.current, {
@@ -186,7 +185,6 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
         }
     }
 
-    // Open Twitter Intent - Using 404-safe hash routing
     const slug = slugify(merket.question);
     const shortLink = `${window.location.origin}/#live-market:${slug}`;
     const sentiment = currentVote === 'YES' ? "BULLISH 🟢" : (currentVote === 'NO' ? "BEARISH 🔴" : "WATCHING 🔮");
@@ -198,37 +196,48 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-2 md:p-4 animate-in fade-in duration-300">
-      <div className="relative w-full max-w-6xl h-full max-h-[95vh] md:max-h-[90vh] overflow-hidden">
-        <button onClick={onClose} className="absolute top-2 right-2 md:top-4 md:right-4 z-[210] p-2 md:p-3 bg-white text-black border-4 border-black rounded-full shadow-lg hover:scale-110 active:scale-95 transition-all">
-          <X size={24} className="md:w-7 md:h-7" />
+      <div className="relative w-full max-w-7xl h-full max-h-[95vh] md:max-h-[92vh] overflow-hidden">
+        <button onClick={onClose} className="absolute top-2 right-2 md:top-6 md:right-6 z-[210] p-2 md:p-3 bg-white text-black border-4 border-black rounded-full shadow-lg hover:scale-110 active:scale-95 transition-all">
+          <X size={28} />
         </button>
 
-        <div className="bg-white w-full h-full rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-2xl flex flex-col md:flex-row border-4 border-black">
-          {/* Main Content Area */}
+        <div className="bg-white w-full h-full rounded-[2.5rem] md:rounded-[4rem] overflow-hidden shadow-2xl flex flex-col md:flex-row border-4 border-black">
+          {/* Main Content Area - Full Vertical Stack */}
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden border-b md:border-b-0 md:border-r-4 border-black">
-            <div ref={captureRef} className="p-5 md:p-8 overflow-y-auto custom-scroll flex-1 bg-white">
-                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 md:gap-6 mb-6 md:mb-8 text-center sm:text-left">
-                  <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-blue-600 border-4 border-black flex items-center justify-center overflow-hidden shrink-0 shadow-xl">
+            <div ref={captureRef} className="p-6 md:p-12 overflow-y-auto custom-scroll flex-1 bg-white">
+                {/* Header Info */}
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 md:gap-10 mb-8 md:mb-12 text-center sm:text-left">
+                  <div className="w-20 h-20 md:w-32 md:h-32 rounded-3xl bg-blue-600 border-4 border-black flex items-center justify-center overflow-hidden shrink-0 shadow-2xl">
                      <img src={merket.image || BRAND_LOGO} className="w-full h-full object-cover" alt="Merket" />
                   </div>
-                  <div className="text-black">
-                    <h2 className="text-2xl md:text-5xl font-black leading-tight uppercase italic tracking-tighter mb-2">{merket.question}</h2>
-                    <div className="flex flex-wrap justify-center sm:justify-start items-center gap-3 md:gap-4 text-gray-500 font-black text-[10px] md:text-xs uppercase tracking-widest">
-                      <span className="flex items-center gap-1.5 text-black bg-gray-100 px-3 py-1 rounded-full"><Users size={14}/> {totalVotes} VOTERS</span>
-                      <span className="flex items-center gap-1.5 text-blue-600"><BarChart3 size={14}/> PULY ORACLE VALIDATED</span>
+                  <div className="text-black flex-1">
+                    <h2 className="text-3xl md:text-6xl font-black leading-tight uppercase italic tracking-tighter mb-4">{merket.question}</h2>
+                    <div className="flex flex-wrap justify-center sm:justify-start items-center gap-4 text-gray-500 font-black text-xs md:text-sm uppercase tracking-widest">
+                      <span className="flex items-center gap-2 text-black bg-gray-100 px-4 py-1.5 rounded-full border-2 border-black/5"><Users size={18}/> {totalVotes} TERMINALS CONNECTED</span>
+                      <span className="flex items-center gap-2 text-blue-600"><BarChart3 size={18}/> PULY ORACLE VERIFIED</span>
                     </div>
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mb-4">
-                    <div className="space-y-4 md:space-y-6">
+                {/* Full Width Components Stack */}
+                <div className="space-y-8 md:space-y-12">
+                    {/* 1. Full Width Chart */}
+                    <div className="w-full">
+                        <h4 className="text-[10px] font-black uppercase text-blue-600 mb-2 tracking-[0.2em]">Live Volatility Index</h4>
                         <MerketChart yes={merket.yesVotes} no={merket.noVotes} />
-                        <div className="bg-blue-600 text-white p-5 md:p-6 rounded-3xl border-4 border-black shadow-lg transform -rotate-1 text-left">
-                            <p className="text-lg md:text-xl font-black italic">"{merket.description}"</p>
-                        </div>
                     </div>
                     
-                    <div className="bg-gray-50 p-4 md:p-6 rounded-3xl border-2 border-dashed border-gray-200">
+                    {/* 2. Full Width Description */}
+                    <div className="w-full bg-blue-600 text-white p-8 md:p-12 rounded-[2.5rem] border-4 border-black shadow-xl transform -rotate-1 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:rotate-12 transition-transform">
+                            <BarChart3 size={120} />
+                        </div>
+                        <h4 className="text-[10px] font-black uppercase text-blue-200 mb-3 tracking-[0.2em]">Analyst Insight</h4>
+                        <p className="text-xl md:text-3xl font-black italic leading-tight">"{merket.description}"</p>
+                    </div>
+                    
+                    {/* 3. Full Width Comments */}
+                    <div className="w-full bg-gray-50 p-6 md:p-10 rounded-[3rem] border-4 border-black border-dashed">
                         <CommentSection marketId={merket.id} />
                     </div>
                 </div>
@@ -236,19 +245,19 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
           </div>
 
           {/* Voting Side Panel */}
-          <div className="w-full md:w-80 bg-gray-100 p-6 md:p-8 flex flex-col justify-center shrink-0 border-t-4 md:border-t-0 border-black">
-            <h3 className="font-black text-2xl md:text-3xl uppercase italic tracking-tighter mb-4 md:mb-6 text-black text-center">POSITION</h3>
+          <div className="w-full md:w-96 bg-gray-100 p-8 md:p-12 flex flex-col justify-center shrink-0 border-t-4 md:border-t-0 border-black">
+            <h3 className="font-black text-3xl md:text-4xl uppercase italic tracking-tighter mb-8 text-black text-center">OPEN POSITION</h3>
             
-            <div className="flex md:flex-col gap-3 md:gap-4 mb-4 md:mb-6">
+            <div className="flex md:flex-col gap-4 mb-8">
               <button 
                 onClick={() => setSelectedOption('YES')} 
-                className={`flex-1 md:w-full py-4 md:py-5 rounded-2xl font-black text-xl md:text-2xl transition-all border-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none flex items-center justify-center gap-2 ${selectedOption === 'YES' ? 'bg-green-500 text-white border-black' : 'bg-white text-green-600 border-gray-200'}`}
+                className={`flex-1 md:w-full py-6 rounded-3xl font-black text-2xl md:text-3xl transition-all border-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none flex items-center justify-center gap-3 ${selectedOption === 'YES' ? 'bg-green-500 text-white border-black' : 'bg-white text-green-600 border-gray-200'}`}
               >
                 YES ({yesProb}%)
               </button>
               <button 
                 onClick={() => setSelectedOption('NO')} 
-                className={`flex-1 md:w-full py-4 md:py-5 rounded-2xl font-black text-xl md:text-2xl transition-all border-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none flex items-center justify-center gap-2 ${selectedOption === 'NO' ? 'bg-red-500 text-white border-black' : 'bg-white text-red-600 border-gray-200'}`}
+                className={`flex-1 md:w-full py-6 rounded-3xl font-black text-2xl md:text-3xl transition-all border-4 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-none flex items-center justify-center gap-3 ${selectedOption === 'NO' ? 'bg-red-500 text-white border-black' : 'bg-white text-red-600 border-gray-200'}`}
               >
                 NO ({100-yesProb}%)
               </button>
@@ -257,24 +266,27 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
             <button 
               disabled={!selectedOption || selectedOption === currentVote || isVoting}
               onClick={handleVoteSubmit}
-              className="w-full bg-black text-white font-black py-3 md:py-4 rounded-2xl border-b-4 border-gray-800 shadow-xl mb-3 md:mb-4 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+              className="w-full bg-black text-white font-black py-5 rounded-3xl border-b-8 border-gray-800 shadow-2xl mb-6 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-3 text-xl"
             >
-              {isVoting ? <Loader2 className="animate-spin" /> : 'SUBMIT VOTE'}
+              {isVoting ? <Loader2 className="animate-spin" /> : 'CONFIRM POSITION'}
             </button>
             
-            <div className="mt-2 md:mt-4 pt-4 border-t-2 border-dashed border-gray-300">
+            <div className="mt-6 pt-8 border-t-4 border-dashed border-gray-300">
                 <button 
                   disabled={!currentVote || isCapturing} 
                   onClick={handleTweetAction} 
-                  className="w-full bg-blue-600 text-white font-black py-3 md:py-4 rounded-full border-b-4 md:border-b-8 border-blue-900 shadow-xl flex items-center justify-center gap-2 md:gap-3 text-base md:text-lg hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
+                  className="w-full bg-blue-600 text-white font-black py-5 rounded-full border-b-8 border-blue-900 shadow-2xl flex items-center justify-center gap-3 text-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
                 >
                   {isCapturing ? (
-                    <><Loader2 className="animate-spin" /> GENERATING...</>
+                    <><Loader2 className="animate-spin" /> BROADCASTING...</>
                   ) : (
-                    <><Twitter size={18}/> TWEET MERKET</>
+                    <><Twitter size={24}/> TWEET SIGNAL</>
                   )}
                 </button>
-                <p className="text-center text-[8px] md:text-[9px] font-black text-gray-400 mt-3 md:mt-4 uppercase tracking-[0.2em]">Live Data: Solana Mainnet</p>
+                <div className="flex justify-between items-center mt-6 px-2">
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Network: Solana</p>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Mode: Live</p>
+                </div>
             </div>
           </div>
         </div>
@@ -454,18 +466,18 @@ const PredictionMerket: React.FC = () => {
         </div>
 
         {/* Sort Tabs */}
-        <div className="flex items-center gap-2 mb-8 bg-black/30 p-1 rounded-2xl w-fit mx-auto md:mx-0 border-2 border-white/10">
+        <div className="flex items-center gap-2 mb-8 bg-black/20 p-1.5 rounded-2xl w-fit mx-auto md:mx-0 border-4 border-black">
             <button 
                 onClick={() => setSortBy('trending')}
-                className={`flex items-center gap-2 px-6 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${sortBy === 'trending' ? 'bg-white text-blue-600 shadow-lg' : 'text-white/60 hover:text-white'}`}
+                className={`flex items-center gap-2 px-8 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${sortBy === 'trending' ? 'bg-white text-blue-600 shadow-xl' : 'text-white/60 hover:text-white'}`}
             >
-                <TrendingUp size={14} /> Trending
+                <TrendingUp size={18} /> Trending
             </button>
             <button 
                 onClick={() => setSortBy('recent')}
-                className={`flex items-center gap-2 px-6 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${sortBy === 'recent' ? 'bg-white text-blue-600 shadow-lg' : 'text-white/60 hover:text-white'}`}
+                className={`flex items-center gap-2 px-8 py-3 rounded-xl font-black text-sm uppercase tracking-widest transition-all ${sortBy === 'recent' ? 'bg-white text-blue-600 shadow-xl' : 'text-white/60 hover:text-white'}`}
             >
-                <Clock size={14} /> Newest
+                <Clock size={18} /> Newest
             </button>
         </div>
 

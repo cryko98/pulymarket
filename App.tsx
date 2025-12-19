@@ -107,20 +107,24 @@ function App() {
             <AboutSection />
           </div>
         ) : (
-          <div className="pt-20 min-h-screen bg-blue-700 animate-in slide-in-from-right duration-500">
-            <div className="container mx-auto px-4 py-10">
-                <button 
+          <div className="pt-16 min-h-screen bg-blue-700 animate-in slide-in-from-right duration-500 flex flex-col">
+            {/* Immersive Terminal Top Bar */}
+            <div className="bg-black/40 border-b border-white/10 px-4 md:px-8 py-3 flex justify-between items-center shrink-0">
+               <div className="flex items-center gap-4 text-white/60 font-mono text-[9px] md:text-[11px] uppercase tracking-[0.3em] overflow-hidden whitespace-nowrap">
+                  <Terminal size={14} className="text-white shrink-0" />
+                  <span className="hidden sm:inline">Connection: Secure // Provider: PulyOracle_v5 // </span> Status: Live // Path: FULL_TERMINAL_ENV
+               </div>
+               <button 
                   onClick={goToLanding}
-                  className="flex items-center gap-2 text-white/70 hover:text-white font-black uppercase italic tracking-widest text-sm mb-12 transition-all hover:-translate-x-1"
+                  className="flex items-center gap-2 text-white bg-white/10 hover:bg-white/20 font-black uppercase italic tracking-widest text-xs transition-all hover:-translate-x-1 py-1 px-3 rounded-md border border-white/20"
                 >
-                   <ArrowLeft size={16} /> Exit Terminal
+                   <ArrowLeft size={14} /> Exit Terminal
                 </button>
-                
-                <div className="bg-black/20 p-4 md:p-8 rounded-[3rem] border-4 border-white/10 shadow-2xl backdrop-blur-sm">
-                   <div className="flex items-center gap-3 mb-10 text-white/50 font-mono text-[10px] uppercase tracking-[0.3em] overflow-hidden whitespace-nowrap">
-                      <Terminal size={12} className="shrink-0" />
-                      Connection: Secure // Provider: PulyOracle_v5 // Status: Live // Path: TERMINAL_HASH_MODE
-                   </div>
+            </div>
+            
+            {/* Full Width Terminal Content */}
+            <div className="flex-1 overflow-y-auto custom-scroll">
+                <div className="container mx-auto px-4 py-8 md:py-16">
                    <PredictionMerket />
                 </div>
             </div>
