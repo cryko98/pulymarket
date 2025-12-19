@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { getMerkets, createMerket, voteMerket, getUserVote, getComments, postComment } from '../services/marketService';
 import { PredictionMerket as MerketType, MerketComment } from '../types';
-import { Plus, Users, Loader2, X, BarChart3, ChevronRight, Share2, Upload, MessageSquare, Send, Twitter, CheckCircle2, AlignLeft } from 'lucide-react';
+import { Plus, Users, Loader2, X, BarChart3, ChevronRight, Share2, Upload, MessageSquare, Send, Twitter, CheckCircle2, TrendingUp, Clock } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
 const BRAND_LOGO = "https://pbs.twimg.com/media/G8b8OArXYAAkpHf?format=jpg&name=medium";
@@ -360,6 +360,7 @@ const PredictionMerket: React.FC = () => {
   const [selectedMerket, setSelectedMerket] = useState<MerketType | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [sortBy, setSortBy] = useState<'recent' | 'trending'>('trending');
 
   const fetchData = async () => {
     try {
@@ -407,6 +408,13 @@ const PredictionMerket: React.FC = () => {
     setActionLoading(false);
   };
 
+  const sortedMerkets = [...merkets].sort((a, b) => {
+    if (sortBy === 'trending') {
+        return (b.yesVotes + b.noVotes) - (a.yesVotes + a.noVotes);
+    }
+    return b.createdAt - a.createdAt;
+  });
+
   return (
     <section id="merkets">
       <div className="container mx-auto">
@@ -419,11 +427,27 @@ const PredictionMerket: React.FC = () => {
             </button>
         </div>
 
+        {/* Sort Tabs */}
+        <div className="flex items-center gap-2 mb-8 bg-black/30 p-1 rounded-2xl w-fit mx-auto md:mx-0 border-2 border-white/10">
+            <button 
+                onClick={() => setSortBy('trending')}
+                className={`flex items-center gap-2 px-6 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${sortBy === 'trending' ? 'bg-white text-blue-600 shadow-lg' : 'text-white/60 hover:text-white'}`}
+            >
+                <TrendingUp size={14} /> Trending
+            </button>
+            <button 
+                onClick={() => setSortBy('recent')}
+                className={`flex items-center gap-2 px-6 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${sortBy === 'recent' ? 'bg-white text-blue-600 shadow-lg' : 'text-white/60 hover:text-white'}`}
+            >
+                <Clock size={14} /> Newest
+            </button>
+        </div>
+
         {loading ? (
             <div className="flex justify-center py-20"><Loader2 className="text-white animate-spin" size={64} /></div>
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-12">
-                {merkets.map(m => (
+                {sortedMerkets.map(m => (
                     <MerketCard key={m.id} merket={m} onOpen={(target) => { setSelectedMerket(target); window.location.hash = `live-market:${slugify(target.question)}`; }} />
                 ))}
             </div>
