@@ -28,14 +28,40 @@ const compressImage = (base64: string, maxWidth = 500, quality = 0.5): Promise<s
   });
 };
 
-const MerketChart = () => (
-  <div className="w-full h-32 md:h-40 relative overflow-hidden bg-blue-50/50 rounded-xl border border-blue-100 mb-6 text-black">
-    <svg className="w-full h-full" viewBox="0 0 400 200">
-      <path d="M0,150 Q50,140 100,160 T200,80 T300,120 T400,40" fill="none" stroke="#2563eb" strokeWidth="4" className="animate-[dash_3s_ease-in-out_infinite]" strokeDasharray="1000" strokeDashoffset="1000" />
-      <style>{`@keyframes dash { to { stroke-dashoffset: 0; } }`}</style>
-    </svg>
-  </div>
-);
+const MerketChart: React.FC<{ yes: number; no: number }> = ({ yes, no }) => {
+  const isBullish = yes > no;
+  const isBearish = no > yes;
+  const color = isBullish ? '#22c55e' : (isBearish ? '#ef4444' : '#3b82f6');
+  
+  // Dynamic path data based on sentiment
+  const pathData = isBullish 
+    ? "M0,140 C50,150 100,180 150,100 C200,20 250,150 350,50 C370,30 390,40 400,20" 
+    : isBearish 
+    ? "M0,60 C50,50 100,20 150,100 C200,180 250,50 350,150 C370,170 390,160 400,180"
+    : "M0,100 C100,90 300,110 400,100";
+
+  return (
+    <div className={`w-full h-32 md:h-40 relative overflow-hidden rounded-xl border-4 border-black mb-6 transition-colors duration-500 shadow-inner ${isBullish ? 'bg-green-50' : isBearish ? 'bg-red-50' : 'bg-blue-50'}`}>
+      <svg className="w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="none">
+        <path 
+          d={pathData} 
+          fill="none" 
+          stroke={color} 
+          strokeWidth="8" 
+          className="animate-[dash_1.5s_ease-out_forwards]" 
+          strokeDasharray="1000" 
+          strokeDashoffset="1000" 
+          strokeLinecap="round"
+        />
+        <style>{`@keyframes dash { to { stroke-dashoffset: 0; } }`}</style>
+      </svg>
+      <div className="absolute top-2 right-3 flex items-center gap-1">
+        <div className={`w-2 h-2 rounded-full animate-pulse ${isBullish ? 'bg-green-500' : isBearish ? 'bg-red-500' : 'bg-blue-500'}`}></div>
+        <span className="text-[10px] font-black uppercase tracking-widest text-black/40">Live Sentiment</span>
+      </div>
+    </div>
+  );
+};
 
 const CommentSection: React.FC<{ marketId: string }> = ({ marketId }) => {
   const [comments, setComments] = useState<MerketComment[]>([]);
@@ -196,7 +222,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
                 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mb-4">
                     <div className="space-y-4 md:space-y-6">
-                        <MerketChart />
+                        <MerketChart yes={merket.yesVotes} no={merket.noVotes} />
                         <div className="bg-blue-600 text-white p-5 md:p-6 rounded-3xl border-4 border-black shadow-lg transform -rotate-1 text-left">
                             <p className="text-lg md:text-xl font-black italic">"{merket.description}"</p>
                         </div>
