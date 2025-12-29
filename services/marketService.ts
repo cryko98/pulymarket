@@ -1,3 +1,4 @@
+
 import { PredictionMerket, MerketComment } from '../types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
@@ -77,8 +78,40 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
 
   const stored = localStorage.getItem(STORAGE_KEY);
   let localData: PredictionMerket[] = stored ? JSON.parse(stored) : [];
-  if (!localData.find(m => m.id === SEED_DATA[0].id)) localData.push(SEED_DATA[0]);
+  
+  // Always ensure seed data exists in local storage if empty
+  if (localData.length === 0) {
+      localData = [...SEED_DATA];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(localData));
+  }
+  
   return localData.sort((a, b) => b.createdAt - a.createdAt);
+};
+
+export const createMarket = async (market: Omit<PredictionMerket, 'id' | 'yesVotes' | 'noVotes' | 'createdAt'>): Promise<void> => {
+    const newMarket: PredictionMerket = {
+        ...market,
+        id: `local-${crypto.randomUUID()}`,
+        yesVotes: 0,
+        noVotes: 0,
+        createdAt: Date.now(),
+        image: market.image || BRAND_LOGO
+    };
+
+    if (isSupabaseConfigured() && supabase) {
+        const { error } = await supabase.from('markets').insert([{
+            question: market.question,
+            description: market.description,
+            image: market.image,
+            yes_votes: 0,
+            no_votes: 0
+        }]);
+        if (!error) return;
+    }
+
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const currentMarkets: PredictionMerket[] = stored ? JSON.parse(stored) : [];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([newMarket, ...currentMarkets]));
 };
 
 export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void> => {
@@ -96,8 +129,8 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void
   }
   
   const stored = localStorage.getItem(STORAGE_KEY);
-  const merkets = stored ? JSON.parse(stored) : [];
-  const updated = merkets.map((m: any) => {
+  const merkets: PredictionMerket[] = stored ? JSON.parse(stored) : [];
+  const updated = merkets.map((m: PredictionMerket) => {
     if (m.id !== id) return m;
     
     let newYes = m.yesVotes;

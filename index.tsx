@@ -24,16 +24,15 @@ const AboutSection = () => (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12 text-left mb-20 items-center">
         <div className="space-y-6 text-xl md:text-2xl font-bold leading-tight">
           <p>
-            The memecoin casino is in a slow-motion collapse. Projects are vanishing at a rate of 
-            <span className="text-red-600 font-black"> 2,000 per month.</span> 
-            Since 2024, out of 7 million tokens issued, a staggering <span className="text-red-600 font-black">98.6%</span> were rug pulls or pump-and-dump schemes.
+            The memecoin casino is in a slow-motion collapse. Projects are vanishing. 
+            Since 2024, out of 7 million tokens issued, a staggering <span className="text-red-600 font-black">98.6%</span> failed.
           </p>
           <p className="border-l-8 border-blue-600 pl-6 italic bg-blue-50 py-4 rounded-r-2xl text-blue-800">
             "The market is rotating away from pure speculation and toward platforms with actual utility."
           </p>
           <p>
             While memecoin attention collapsed by 90%, Prediction Markets exploded. 
-            Polymarket crossed <span className="text-blue-800">$9 Billion</span> in volume.
+            $Polymarket is leading the charge on Solana.
           </p>
         </div>
         
@@ -44,7 +43,7 @@ const AboutSection = () => (
           </h3>
           <p className="text-lg font-bold mb-6 opacity-90">
             $Polymarket isn't just a ticker; it's the infrastructure for the next cycle. 
-            We are shipping tools, research, and data that memecoins simply can't match.
+            We are shipping tools, research, and data.
           </p>
           <ul className="space-y-4">
             <li className="flex gap-3 items-start">
@@ -53,7 +52,7 @@ const AboutSection = () => (
             </li>
             <li className="flex gap-3 items-start">
                <TrendingUp className="shrink-0 mt-1" />
-               <span>Over 400,000 queries processed by our Oracle.</span>
+               <span>Real-time oracle verification on-chain.</span>
             </li>
             <li className="flex gap-3 items-start">
                <Skull className="shrink-0 mt-1" />
@@ -78,34 +77,18 @@ function App() {
   const logoUrl = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
 
   useEffect(() => {
-    // Handle incoming pathname and convert to hash for SPA routing
     const path = window.location.pathname;
     if (path !== '/' && path !== '/index.html' && !window.location.hash) {
       const slug = path.replace(/^\/+/, '');
-      if (slug) {
-        window.location.hash = `live-market:${slug}`;
-      }
+      if (slug) window.location.hash = `live-market:${slug}`;
     }
-
-    const handleHashChange = () => {
-      setHash(window.location.hash);
-    };
-
+    const handleHashChange = () => setHash(window.location.hash);
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  const goToLanding = () => {
-    window.location.hash = '';
-    // If we were on a subpath, clear it
-    if (window.location.pathname !== '/') {
-        window.history.pushState(null, '', '/');
-    }
-  };
-
-  const goToTerminal = () => {
-    window.location.hash = 'live-market';
-  };
+  const goToLanding = () => { window.location.hash = ''; };
+  const goToTerminal = () => { window.location.hash = 'live-market'; };
 
   const isTerminal = hash.startsWith('#live-market');
 
@@ -124,11 +107,11 @@ function App() {
             <div className="bg-black/40 border-b border-white/10 px-4 md:px-8 py-3 flex justify-between items-center shrink-0">
                <div className="flex items-center gap-4 text-white/60 font-mono text-[9px] md:text-[11px] uppercase tracking-[0.3em] overflow-hidden whitespace-nowrap">
                   <Terminal size={14} className="text-white shrink-0" />
-                  <span className="hidden sm:inline">Connection: Secure // Provider: PolyOracle_v5 // </span> Status: Live // Path: FULL_TERMINAL_ENV
+                  <span>Connection: Secure // Provider: PolyOracle_v5 // Status: Live // Path: TERMINAL_ENV</span>
                </div>
                <button 
                   onClick={goToLanding}
-                  className="flex items-center gap-2 text-white bg-white/10 hover:bg-white/20 font-black uppercase italic tracking-widest text-xs transition-all hover:-translate-x-1 py-1 px-3 rounded-md border border-white/20"
+                  className="flex items-center gap-2 text-white bg-white/10 hover:bg-white/20 font-black uppercase italic tracking-widest text-xs py-1 px-3 rounded-md border border-white/20"
                 >
                    <ArrowLeft size={14} /> Exit Terminal
                 </button>
@@ -152,7 +135,6 @@ function App() {
                 <span className="font-black italic text-white text-2xl drop-shadow-md uppercase tracking-tighter">POLYMARKET</span>
             </div>
             <p className="mb-2 font-black uppercase tracking-widest text-sm italic">© 2025 THE SOLE SURVIVOR</p>
-            <div className="text-xs opacity-50 mt-4 font-mono">ROUTING_STABLE // HASH_LOCK_ENABLED</div>
         </div>
       </footer>
     </div>
