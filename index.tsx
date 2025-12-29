@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import Header from './components/Header';
@@ -77,6 +78,15 @@ function App() {
   const logoUrl = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
 
   useEffect(() => {
+    // Handle incoming pathname and convert to hash for SPA routing
+    const path = window.location.pathname;
+    if (path !== '/' && path !== '/index.html' && !window.location.hash) {
+      const slug = path.replace(/^\/+/, '');
+      if (slug) {
+        window.location.hash = `live-market:${slug}`;
+      }
+    }
+
     const handleHashChange = () => {
       setHash(window.location.hash);
     };
@@ -87,6 +97,10 @@ function App() {
 
   const goToLanding = () => {
     window.location.hash = '';
+    // If we were on a subpath, clear it
+    if (window.location.pathname !== '/') {
+        window.history.pushState(null, '', '/');
+    }
   };
 
   const goToTerminal = () => {

@@ -2,7 +2,7 @@
 import { ImageResponse } from 'next/og';
 
 export const runtime = 'edge';
-export const alt = 'Pulymerket Prediction';
+export const alt = 'Polymarket Prediction';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -17,7 +17,7 @@ export default async function Image({ params }: { params: { slug: string } }) {
   // Simulated live stats
   const yesProb = 72; 
   const totalVotes = 1524;
-  const brandLogo = "https://pbs.twimg.com/media/G8b8OArXYAAkpHf?format=jpg&name=medium";
+  const brandLogo = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
 
   return new ImageResponse(
     (
@@ -136,22 +136,14 @@ export default async function Image({ params }: { params: { slug: string } }) {
           </div>
 
           <div style={{ display: 'flex', marginTop: '40px', justifyContent: 'space-between', opacity: 0.5 }}>
-             <span style={{ fontSize: '16px', fontWeight: 'bold', letterSpacing: '1px' }}>SOLANA NETWORK // $PULY</span>
-             <span style={{ fontSize: '16px', fontWeight: 'bold' }}>PULYMERKET.COM</span>
+             <span style={{ fontSize: '16px', fontWeight: 'bold', letterSpacing: '1px' }}>SOLANA NETWORK // $POLY</span>
+             <span style={{ fontSize: '16px', fontWeight: 'bold' }}>POLYMARKET.COM</span>
           </div>
         </div>
       </div>
     ),
     { 
       ...size,
-      fonts: [
-        {
-          name: 'Inter',
-          data: await fetch(new URL('https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGkyMZhrib2Bg-4.ttf', import.meta.url)).then(res => res.arrayBuffer()),
-          style: 'normal',
-          weight: 900,
-        },
-      ],
     }
   );
 }
