@@ -1,4 +1,3 @@
-
 import { Metadata } from 'next';
 import { headers } from 'next/headers';
 
@@ -45,13 +44,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       images: [imageUrl],
     },
+    icons: {
+      icon: "https://img.cryptorank.io/coins/polymarket1671006384460.png",
+    }
   };
 }
 
 export default function Page({ params }: Props) {
+  const favicon = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
+  
   return (
     <html>
       <head>
+        <link rel="icon" type="image/png" href={favicon} />
+        <link rel="shortcut icon" type="image/png" href={favicon} />
         <script dangerouslySetInnerHTML={{
           __html: `window.location.href = "/#live-market:${params.slug}";`
         }} />

@@ -5,18 +5,19 @@ interface HeroProps {
 }
 
 const Hero: React.FC<HeroProps> = ({ onStart }) => {
+  // Correct image for Logo, Favicon and Hero as requested
   const heroImageUrl = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
 
   return (
     <section className="relative pt-32 pb-20">
       <div className="container mx-auto px-4">
         
-        {/* Main Brand Image - Removed square frame/border as requested */}
-        <div className="w-full max-w-[280px] md:max-w-[420px] mx-auto mb-12 transform hover:scale-105 transition-transform duration-700 flex items-center justify-center">
+        {/* Main Hero Image - Frameless, high-impact presentation */}
+        <div className="w-full max-w-[300px] md:max-w-[450px] mx-auto mb-12 transform hover:scale-[1.05] transition-transform duration-700 flex items-center justify-center">
             <img 
                 src={heroImageUrl} 
-                alt="Polymarket Brand" 
-                className="w-full h-auto block drop-shadow-[0_0_40px_rgba(255,255,255,0.2)]"
+                alt="Polymarket Hero Art" 
+                className="w-full h-auto block drop-shadow-[0_0_60px_rgba(255,255,255,0.3)]"
             />
         </div>
 
