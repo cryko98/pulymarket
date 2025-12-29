@@ -141,16 +141,16 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
     canvas.width = 1000;
     canvas.height = 1000;
 
-    // Draw Background
+    // Background
     ctx.fillStyle = '#0a0f1d';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Header: Image/Logo and Question
+    // Question Section
     const logoImg = new Image();
     logoImg.crossOrigin = "anonymous";
     logoImg.src = merket.image || BRAND_LOGO;
     await new Promise(r => logoImg.onload = r);
-    ctx.drawImage(logoImg, 60, 60, 100, 100);
+    ctx.drawImage(logoImg, 60, 60, 120, 120);
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'italic 900 64px Space Grotesk';
@@ -162,23 +162,23 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
       let testLine = line + words[n] + ' ';
       let metrics = ctx.measureText(testLine);
       if (metrics.width > 700 && n > 0) {
-        ctx.fillText(line, 180, y);
+        ctx.fillText(line, 210, y);
         line = words[n] + ' ';
         y += 75;
       } else { line = testLine; }
     }
-    ctx.fillText(line, 180, y);
+    ctx.fillText(line, 210, y);
 
     // Sentiment Box
-    const boxY = Math.max(220, y + 120);
+    const boxY = Math.max(250, y + 140);
     ctx.fillStyle = 'rgba(255,255,255,0.03)';
     ctx.strokeStyle = 'rgba(255,255,255,0.1)';
     ctx.lineWidth = 2;
-    ctx.roundRect(60, boxY, 880, 420, 40);
+    ctx.roundRect(60, boxY, 880, 420, 50);
     ctx.fill();
     ctx.stroke();
 
-    // Box Labels
+    // Box Header Text
     ctx.font = 'italic 900 20px Space Grotesk';
     ctx.fillStyle = 'rgba(255,255,255,0.4)';
     ctx.fillText('BULLISH SENTIMENT', 100, boxY + 40);
@@ -186,8 +186,8 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
     ctx.fillText('BEARISH SENTIMENT', 900, boxY + 40);
     ctx.textAlign = 'left';
 
-    // Percentages
-    ctx.font = 'italic 900 80px Space Grotesk';
+    // Box Percentages
+    ctx.font = 'italic 900 96px Space Grotesk';
     ctx.fillStyle = '#3b82f6';
     ctx.fillText(`${yesProb}% YES`, 100, boxY + 80);
     ctx.textAlign = 'right';
@@ -195,50 +195,56 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
     ctx.fillText(`${100-yesProb}% NO`, 900, boxY + 80);
     ctx.textAlign = 'left';
 
-    // Progress Bar
+    // Sentiment Bar
     ctx.fillStyle = 'rgba(255,255,255,0.1)';
-    ctx.roundRect(100, boxY + 180, 800, 16, 8);
+    ctx.roundRect(100, boxY + 200, 800, 20, 10);
     ctx.fill();
     ctx.fillStyle = '#3b82f6';
-    ctx.roundRect(100, boxY + 180, (800 * yesProb) / 100, 16, 8);
+    ctx.roundRect(100, boxY + 200, (800 * yesProb) / 100, 20, 10);
     ctx.fill();
 
-    // Trend Graph (Simulated line)
+    // Trend Graph Area
     ctx.strokeStyle = '#10b981';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(100, boxY + 350);
-    for(let i=0; i<=10; i++) {
-        const x = 100 + (i * 80);
-        const jitter = Math.sin(i * 1.5 + yesProb) * 20;
-        const trendY = (boxY + 350) - ((yesProb - 50) / 2) + jitter;
-        ctx.lineTo(x, trendY);
+    ctx.moveTo(100, boxY + 360);
+    for(let i=0; i<=20; i++) {
+        const x = 100 + (i * 40);
+        const jitter = Math.sin(i * 1.5 + yesProb) * 15;
+        const ty = (boxY + 360) - ((yesProb - 50) / 3) + jitter;
+        ctx.lineTo(x, ty);
     }
     ctx.stroke();
+    ctx.font = 'italic 900 12px Space Grotesk';
+    ctx.fillStyle = '#10b981';
+    ctx.textAlign = 'right';
+    ctx.fillText('SENTIMENT TREND', 900, boxY + 310);
+    ctx.textAlign = 'left';
 
-    // Description
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    // Market Description
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
     ctx.font = 'italic 700 32px Space Grotesk';
     ctx.textAlign = 'center';
-    const descWords = `"${merket.description}"`.split(' ');
+    const descText = `"${merket.description}"`;
+    const descWords = descText.split(' ');
     let descLine = '';
-    let descY = boxY + 480;
+    let dy = boxY + 480;
     for(let n = 0; n < descWords.length; n++) {
       let testLine = descLine + descWords[n] + ' ';
       let metrics = ctx.measureText(testLine);
       if (metrics.width > 800 && n > 0) {
-        ctx.fillText(descLine, 500, descY);
+        ctx.fillText(descLine, 500, dy);
         descLine = descWords[n] + ' ';
-        descY += 45;
+        dy += 45;
       } else { descLine = testLine; }
     }
-    ctx.fillText(descLine, 500, descY);
+    ctx.fillText(descLine, 500, dy);
 
-    // Footer
+    // Global Feed Footer
     ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(255,255,255,0.3)';
     ctx.font = '900 24px Space Grotesk';
-    ctx.fillText('GLOBAL FEED', 60, 920);
+    ctx.fillText('GLOBAL FEED', 60, 930);
 
     const link = document.createElement('a');
     link.download = `market-card-${slugify(merket.question)}.png`;
@@ -251,7 +257,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
     const slug = slugify(merket.question);
     const domain = window.location.origin;
     const shareLink = `${domain}/${slug}`;
-    const tweetText = `Terminal Signal Analysis: "${merket.question}"\n\nSentiment: ${yesProb}% Bullish\nVote on-chain:\n${shareLink}\n\n$Polymarket #Solana`;
+    const tweetText = `Terminal Analysis: "${merket.question}"\n\nSentiment: ${yesProb}% Bullish\nOn-chain Oracle status: Active\n\nBroadcast signal at:\n${shareLink}\n\n$Polymarket #Solana`;
     window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`, '_blank');
   };
 
@@ -304,7 +310,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
         <div className="w-full md:w-80 bg-white/[0.01] p-8 md:p-12 flex flex-col justify-center gap-4 border-t md:border-t-0 md:border-l border-white/10">
           <button onClick={() => setSelectedOption('YES')} className={`w-full py-5 rounded-2xl font-black text-lg border transition-all uppercase italic tracking-tighter ${selectedOption === 'YES' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-transparent border-white/5 hover:border-white/20 text-white/40'}`}>Yes Signal</button>
           <button onClick={() => setSelectedOption('NO')} className={`w-full py-5 rounded-2xl font-black text-lg border transition-all uppercase italic tracking-tighter ${selectedOption === 'NO' ? 'bg-rose-500/20 border-rose-500 text-rose-400' : 'bg-transparent border-white/5 hover:border-white/20 text-white/40'}`}>No Signal</button>
-          <button onClick={() => onVote(merket.id, selectedOption!)} disabled={!selectedOption || isVoting} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl hover:bg-blue-500 transition-all disabled:opacity-20 mt-4 shadow-xl uppercase italic tracking-tighter">{isVoting ? <Loader2 className="animate-spin mx-auto" /> : "Broadcast Vote"}</button>
+          <button onClick={() => onVote(merket.id, selectedOption!)} disabled={!selectedOption || isVoting} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl hover:bg-blue-500 transition-all disabled:opacity-20 mt-4 shadow-xl uppercase italic tracking-tighter">{isVoting ? <Loader2 className="animate-spin mx-auto" /> : "Submit Vote"}</button>
           <div className="grid grid-cols-2 gap-3 mt-6">
             <button onClick={handleTweetAction} className="py-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase italic hover:bg-white/10 transition-all text-white/60">
               <XIcon size={14} /> Share
