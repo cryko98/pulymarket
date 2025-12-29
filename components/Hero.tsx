@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface HeroProps {
@@ -35,8 +36,8 @@ const Hero: React.FC<HeroProps> = ({ onStart }) => {
           </h1>
           
           <p className="text-xl md:text-2xl text-white font-bold mb-10 max-w-2xl leading-relaxed drop-shadow-md">
-            The sole survivor of the cycle.<br/>
-            Accuracy meets terminal utility on Solana.
+            Globally recognized and cited by the world's leading icons.<br/>
+            We've engineered the definitive memecoin evolution of Polymarket, now live on USD1.
           </p>
 
           <div className="flex flex-col md:flex-row gap-4 w-full md:w-auto justify-center">
