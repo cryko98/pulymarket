@@ -9,14 +9,6 @@ const MemeGenerator: React.FC = () => {
   const [customImage, setCustomImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Use the API key logic similar to previous components (env or fallback)
-  // WARNING: In a production app, never expose keys on client side.
-  const env = (import.meta as any).env || {};
-  // Fallback key provided for demo purposes since user environment might not be set up
-  const apiKey = env.VITE_API_KEY || "AIzaSyARmYNQRlzWCwWDtPaU1u57Y6iODogdbmI";
-  
-  const ai = new GoogleGenAI({ apiKey });
-
   const PREDICTOOR_LOGO_URL = "https://pbs.twimg.com/media/G8TkHNYWoAIWHeT?format=jpg&name=medium";
 
   // Helper to convert URL to Base64
@@ -83,6 +75,8 @@ const MemeGenerator: React.FC = () => {
     setGeneratedImage(null);
 
     try {
+        // Initialize GoogleGenAI right before the API call as per guidelines
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         let imagePart = null;
         let finalPrompt = textPrompt;
 
@@ -118,13 +112,11 @@ const MemeGenerator: React.FC = () => {
         parts.push({ text: finalPrompt });
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image', // Good for general image generation/editing
+            model: 'gemini-2.5-flash-image', // Recommended for general image generation/editing
             contents: { parts },
-            // Note: config usually not needed for basic generation unless specific JSON schema, which we don't need for images.
         });
 
-        // Extract image from response
-        // The API returns image data in the parts
+        // Extract image from response parts
         const responseParts = response.candidates?.[0]?.content?.parts;
         if (responseParts) {
             for (const part of responseParts) {
@@ -137,7 +129,6 @@ const MemeGenerator: React.FC = () => {
         }
         
         if (!generatedImage && response.text) {
-             // If no image was generated but text was (error or refusal), we might want to show it, but for now just console.
              console.log("Model returned text instead of image:", response.text);
         }
 

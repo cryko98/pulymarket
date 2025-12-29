@@ -1,37 +1,33 @@
-
 import { PredictionMerket, MerketComment } from '../types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
-const STORAGE_KEY = 'puly_merket_data_v2';
-const COMMENTS_KEY = 'puly_merket_comments_v1';
-const USER_VOTES_KEY = 'puly_user_votes_v3'; // Versioned key for new object structure
-const BRAND_LOGO = "https://pbs.twimg.com/media/G8b8OArXYAAkpHf?format=jpg&name=medium";
+const STORAGE_KEY = 'poly_market_data_v2';
+const COMMENTS_KEY = 'poly_market_comments_v1';
+const USER_VOTES_KEY = 'poly_user_votes_v3'; 
+const BRAND_LOGO = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
 
 const FUNNY_INSIGHTS = [
-  "Oracle status: High on digital incense.",
-  "Whale alerted: Someone just bet their reputation on this.",
-  "Merket sentiment: Pure hopium and 0.5% logic.",
-  "Industry standard prediction. 97% of jeets will get this wrong.",
-  "Data source: A dream the dev had after drinking 4 energy drinks.",
-  "Confidence score: Trust me bro.",
-  "Probability of moon: Highly likely if you don't sell your soul."
+  "Confidence scoring: High.",
+  "Market sentiment: Extremely Bullish.",
+  "Terminal activity: Peak volume.",
+  "Industry report: $Polymarket dominance.",
+  "Data source: On-chain truth.",
+  "Accuracy: Verified by Oracle.",
+  "Signal status: Strong Buy pressure."
 ];
 
 const SEED_DATA: PredictionMerket[] = [
   {
-    id: 'puly-1',
-    question: 'Will $pulymerket reach 100M Merket Cap by April?',
+    id: 'poly-1',
+    question: 'Will $Polymarket reach 100M Market Cap by April?',
     yesVotes: 420,
     noVotes: 69,
     createdAt: Date.now(),
     image: BRAND_LOGO,
-    description: "The ultimate test of faith. If you believe, the chart will follow."
+    description: "The ultimate survival metric. Monitoring growth velocity across the Solana ecosystem."
   }
 ];
 
-/**
- * Returns 'YES', 'NO' or null based on user's previous action
- */
 export const getUserVote = (merketId: string): 'YES' | 'NO' | null => {
   try {
     const stored = localStorage.getItem(USER_VOTES_KEY);
@@ -85,36 +81,9 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
   return localData.sort((a, b) => b.createdAt - a.createdAt);
 };
 
-export const createMerket = async (question: string, description?: string, imageUrl?: string): Promise<void> => {
-  const finalDescription = description?.trim() || FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)];
-  
-  if (isSupabaseConfigured() && supabase) {
-    await supabase.from('markets').insert([{ 
-      question: question.trim(), 
-      yes_votes: 0, 
-      no_votes: 0, 
-      image: imageUrl,
-      description: finalDescription
-    }]);
-    return;
-  }
-  const stored = localStorage.getItem(STORAGE_KEY);
-  const merkets = stored ? JSON.parse(stored) : [];
-  const newMerket = { 
-    id: `local-${crypto.randomUUID()}`, 
-    question, 
-    yesVotes: 0, 
-    noVotes: 0, 
-    createdAt: Date.now(), 
-    image: imageUrl, 
-    description: finalDescription 
-  };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify([newMerket, ...merkets]));
-};
-
 export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void> => {
   const previousVote = getUserVote(id);
-  if (previousVote === option) return; // No change
+  if (previousVote === option) return;
 
   if (isSupabaseConfigured() && supabase && !id.startsWith('local-')) {
     await supabase.rpc('increment_vote', { 
@@ -126,7 +95,6 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void
     return;
   }
   
-  // Local Fallback
   const stored = localStorage.getItem(STORAGE_KEY);
   const merkets = stored ? JSON.parse(stored) : [];
   const updated = merkets.map((m: any) => {
@@ -135,11 +103,9 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void
     let newYes = m.yesVotes;
     let newNo = m.noVotes;
 
-    // Remove previous
     if (previousVote === 'YES') newYes = Math.max(0, newYes - 1);
     if (previousVote === 'NO') newNo = Math.max(0, newNo - 1);
 
-    // Add new
     if (option === 'YES') newYes += 1;
     if (option === 'NO') newNo += 1;
 

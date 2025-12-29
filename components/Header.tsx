@@ -7,8 +7,8 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onLogoClick }) => {
   const [copied, setCopied] = useState(false);
-  const ca = "C1JSieeYSvMZpq8oRioJWgxuSHwBo2ahgwcejFEvpump";
-  const logoUrl = "https://pbs.twimg.com/media/G8b8OArXYAAkpHf?format=jpg&name=medium";
+  const ca = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+  const logoUrl = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
 
   const handleCopy = () => {
     navigator.clipboard.writeText(ca);
@@ -26,7 +26,7 @@ const Header: React.FC<HeaderProps> = ({ onLogoClick }) => {
                 <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
             </div>
             <span className="text-xl md:text-2xl font-black italic tracking-tighter text-white uppercase drop-shadow-md">
-                PULYMERKET
+                Polymarket
             </span>
         </div>
 
@@ -48,11 +48,11 @@ const Header: React.FC<HeaderProps> = ({ onLogoClick }) => {
 
             {/* Follow on X Link */}
             <a 
-                href="https://x.com/pulymerket?s=21" 
+                href="https://x.com" 
                 target="_blank" 
                 rel="noreferrer"
                 className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 hover:bg-gray-100 rounded-full transition-all group shadow-md font-bold text-sm"
-                title="Follow @pulymerket"
+                title="Follow us"
             >
                 <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
                     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />

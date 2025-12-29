@@ -22,12 +22,6 @@ const PredictoorAgent: React.FC = () => {
   // Ref for the scrollable container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
-  // DIRECT API KEY ACCESS
-  const env = (import.meta as any).env || {};
-  const apiKey = env.VITE_API_KEY || "AIzaSyARmYNQRlzWCwWDtPaU1u57Y6iODogdbmI";
-
-  const ai = new GoogleGenAI({ apiKey: apiKey }); 
-  
   const botAvatarUrl = "https://pbs.twimg.com/media/G8TkHNYWoAIWHeT?format=jpg&name=medium";
 
   useEffect(() => {
@@ -109,8 +103,10 @@ VERDICT: BULLISH 🟢`;
     setIsLoading(true);
 
     try {
+      // Use process.env.API_KEY directly and initialize right before use as per guidelines
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const chat = ai.chats.create({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         config: {
           systemInstruction: `You are 'Predictoor', an elite crypto analyst AI.
           
@@ -135,15 +131,15 @@ VERDICT: BULLISH 🟢`;
         },
       });
 
-      const result = await chat.sendMessage({ message: userMessage.text });
-      const responseText = result.text;
+      const response = await chat.sendMessage({ message: userMessage.text });
+      const responseText = response.text;
 
       setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'model', text: responseText }]);
 
     } catch (error: any) {
       console.error("AI Error:", error);
       
-      const errorStr = JSON.stringify(error) + error.message;
+      const errorStr = JSON.stringify(error) + (error.message || "");
       const isQuotaError = errorStr.includes('429') || errorStr.includes('RESOURCE_EXHAUSTED') || errorStr.includes('403');
       
       if (isQuotaError || error) {
@@ -195,7 +191,7 @@ VERDICT: BULLISH 🟢`;
                 <div className="bg-black/60 border-b border-green-500/20 p-4 flex justify-between items-center shrink-0">
                     <div className="flex items-center gap-2 text-green-500/80 font-mono text-xs">
                         <Terminal size={14} />
-                        <span>v2.5.0-FLASH // PREDICTOOR_CORE</span>
+                        <span>v3-FLASH // PREDICTOOR_CORE</span>
                     </div>
                     <div className="flex items-center gap-1 text-yellow-500/80 text-xs font-bold uppercase">
                         <AlertTriangle size={12} />

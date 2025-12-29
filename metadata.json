@@ -1,5 +1,7 @@
 {
-  "name": "pulymerket",
-  "description": "The official $pulymerket prediction market.",
-  "requestFramePermissions": []
+  "name": "polymarket",
+  "description": "The official $Polymarket prediction terminal.",
+  "requestFramePermissions": [
+    "camera"
+  ]
 }

@@ -31,7 +31,8 @@ const OraclePlinko: React.FC = () => {
   
   // Refs
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const requestRef = useRef<number>();
+  // Fixed: Expected 1 arguments, but got 0. useRef often requires an initial value in some TS environments.
+  const requestRef = useRef<number | undefined>(undefined);
   const ballRef = useRef({ x: 0, y: 0, vx: 0, vy: 0, active: false });
   const pegsRef = useRef<{x: number, y: number}[]>([]);
   
