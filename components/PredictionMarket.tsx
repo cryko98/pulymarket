@@ -141,16 +141,23 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
     canvas.width = 1000;
     canvas.height = 1000;
 
-    // Background
+    // Background - Dark Terminal Style
     ctx.fillStyle = '#0a0f1d';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Question Section
+    // Question Section + Image
     const logoImg = new Image();
     logoImg.crossOrigin = "anonymous";
     logoImg.src = merket.image || BRAND_LOGO;
     await new Promise(r => logoImg.onload = r);
+    
+    // Rounded Image Clipping
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(60, 60, 120, 120, 25);
+    ctx.clip();
     ctx.drawImage(logoImg, 60, 60, 120, 120);
+    ctx.restore();
 
     ctx.fillStyle = '#ffffff';
     ctx.font = 'italic 900 64px Space Grotesk';
@@ -257,7 +264,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
     const slug = slugify(merket.question);
     const domain = window.location.origin;
     const shareLink = `${domain}/${slug}`;
-    const tweetText = `Terminal Analysis: "${merket.question}"\n\nSentiment: ${yesProb}% Bullish\nOn-chain Oracle status: Active\n\nBroadcast signal at:\n${shareLink}\n\n$Polymarket #Solana`;
+    const tweetText = `Terminal Analysis: "${merket.question}"\n\nSentiment: ${yesProb}% Bullish\n\nVote on-chain:\n${shareLink}\n\n$Polymarket #Solana`;
     window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`, '_blank');
   };
 
