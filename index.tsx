@@ -136,7 +136,7 @@ const TerminalFeaturesSection = () => (
   </section>
 );
 
-export default function App() {
+function App() {
   const [hash, setHash] = useState("");
   const logoUrl = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
 
@@ -193,3 +193,11 @@ export default function App() {
     </div>
   );
 }
+
+const container = document.getElementById('root');
+if (container) {
+  const root = createRoot(container);
+  root.render(<App />);
+}
+
+export default App;
