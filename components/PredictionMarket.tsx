@@ -14,14 +14,14 @@ const XIcon = ({ size = 16, className = "" }) => (
   </svg>
 );
 
-const TrendGraph: React.FC<{ yesProb: number; marketId: string; height?: number }> = ({ yesProb, marketId, height = 140 }) => {
+const TrendGraph: React.FC<{ yesProb: number; marketId: string; height?: number }> = ({ yesProb, marketId, height = 200 }) => {
   const noProb = 100 - yesProb;
   
   const points = useMemo(() => {
     const yesP = [];
     const noP = [];
-    const segments = 40;
-    const width = 400;
+    const segments = 50;
+    const width = 500;
     
     // Seeded random for consistent "history" per market
     let seed = marketId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
@@ -30,12 +30,13 @@ const TrendGraph: React.FC<{ yesProb: number; marketId: string; height?: number 
       return seed / 233280;
     };
 
-    // We map a range centered around 50% for high detail, or 0-100 if extreme.
-    const minY = 40;
-    const maxY = 60;
+    // Full 0-100 scale as requested
+    const minY = 0;
+    const maxY = 100;
     const range = maxY - minY;
 
     const mapValueToY = (val: number) => {
+      // 0 is top, height is bottom
       const normalized = (val - minY) / range;
       return height - (normalized * height);
     };
@@ -44,7 +45,9 @@ const TrendGraph: React.FC<{ yesProb: number; marketId: string; height?: number 
       const x = (i / segments) * width;
       const progress = i / segments;
       
-      const noise = (seededRandom() - 0.5) * (1 - progress) * 8;
+      // Calculate a "walk" towards the current probability
+      // We use steps to simulate real trades history
+      const noise = (seededRandom() - 0.5) * (1 - progress) * 15;
       
       const currentYes = i === segments ? yesProb : yesProb + noise;
       const currentNo = i === segments ? noProb : noProb - noise;
@@ -56,56 +59,57 @@ const TrendGraph: React.FC<{ yesProb: number; marketId: string; height?: number 
     return { yes: yesP.join(' '), no: noP.join(' '), mapValueToY };
   }, [yesProb, height, marketId]);
 
-  const labels = [56, 54, 52, 50, 48, 46, 44];
+  // Generate labels for 0-100% viewable range
+  const labels = [100, 80, 60, 40, 20, 0];
 
   return (
-    <div className="w-full relative flex bg-[#111827] rounded-xl border border-white/5 my-6 overflow-hidden" style={{ height: `${height}px` }}>
-      {/* Left part: Graph */}
-      <div className="flex-1 relative border-r border-white/5">
-        {/* Horizontal Grid lines */}
-        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+    <div className="w-full relative flex bg-[#0d1117] rounded-xl border border-white/5 my-6 overflow-hidden shadow-inner group/graph" style={{ height: `${height}px` }}>
+      {/* Scrollable Container for the full range */}
+      <div className="flex-1 relative border-r border-white/5 overflow-x-hidden">
+        {/* Grid lines */}
+        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-10">
           {labels.map((_, i) => (
-            <div key={i} className="w-full border-t border-dashed border-white/20"></div>
+            <div key={i} className="w-full border-t border-white/20"></div>
           ))}
         </div>
         
-        <svg className="w-full h-full p-0" viewBox={`0 0 400 ${height}`} preserveAspectRatio="none">
+        <svg className="w-full h-full" viewBox={`0 0 500 ${height}`} preserveAspectRatio="none">
           {/* NO Line (Red) */}
           <polyline
             fill="none"
             stroke="#ef4444"
-            strokeWidth="2"
+            strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
             points={points.no}
             className="transition-all duration-700"
           />
-          {/* YES Line (Blue) */}
+          {/* YES Line (Green) */}
           <polyline
             fill="none"
-            stroke="#3b82f6"
-            strokeWidth="2"
+            stroke="#22c55e"
+            strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
             points={points.yes}
             className="transition-all duration-700"
           />
           
-          {/* Terminal Dots */}
-          <circle cx="400" cy={points.mapValueToY(yesProb)} r="4" fill="#3b82f6" className="transition-all duration-700" />
-          <circle cx="400" cy={points.mapValueToY(noProb)} r="4" fill="#ef4444" className="transition-all duration-700" />
+          {/* Real-time Terminal Points (Actual percentages) */}
+          <circle cx="500" cy={points.mapValueToY(yesProb)} r="5" fill="#22c55e" className="transition-all duration-700 shadow-lg" />
+          <circle cx="500" cy={points.mapValueToY(noProb)} r="5" fill="#ef4444" className="transition-all duration-700 shadow-lg" />
         </svg>
 
         {/* Source overlay */}
-        <div className="absolute bottom-2 left-3 bg-black/40 px-2 py-0.5 rounded text-[8px] font-bold text-white/30 italic uppercase tracking-widest">
-          Source: poly-market.site
+        <div className="absolute bottom-2 left-3 bg-black/60 px-3 py-1 rounded-md text-[9px] font-black text-white/40 italic uppercase tracking-[0.2em] border border-white/5">
+          SOURCE: POLY-MARKET.SITE
         </div>
       </div>
 
-      {/* Right part: Y-Axis Labels */}
-      <div className="w-10 flex flex-col justify-between items-center py-0 opacity-40 text-[9px] font-bold text-white/80 bg-black/20">
+      {/* Right side: Axis labels */}
+      <div className="w-12 flex flex-col justify-between items-center py-0.5 opacity-40 text-[10px] font-black text-white bg-black/40">
         {labels.map((val) => (
-          <div key={val} className="flex-1 flex items-center justify-center border-b border-white/5 w-full last:border-b-0">
+          <div key={val} className="flex-1 flex items-center justify-center border-b border-white/5 w-full last:border-b-0 italic">
             {val}%
           </div>
         ))}
@@ -215,14 +219,14 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
 
             <div className="mb-8 p-8 bg-white/5 rounded-[2rem] border border-white/5 relative">
                <div className="flex justify-between items-end mb-6 font-black italic uppercase tracking-tighter">
-                  <div className="flex flex-col"><span className="text-blue-400 text-[10px] tracking-widest mb-1 opacity-40 italic">Bullish Sentiment</span><span className="text-4xl text-blue-500">{yesProb}% YES</span></div>
-                  <div className="flex flex-col items-end"><span className="text-red-400 text-[10px] tracking-widest mb-1 opacity-40 italic">Bearish Sentiment</span><span className="text-4xl text-red-500">{100-yesProb}% NO</span></div>
+                  <div className="flex flex-col"><span className="text-green-400 text-[10px] tracking-widest mb-1 opacity-60 italic uppercase font-black">Bullish Signal</span><span className="text-4xl text-green-500">{yesProb}% YES</span></div>
+                  <div className="flex flex-col items-end"><span className="text-red-400 text-[10px] tracking-widest mb-1 opacity-60 italic uppercase font-black">Bearish Signal</span><span className="text-4xl text-red-500">{100-yesProb}% NO</span></div>
                </div>
                <div className="h-4 bg-white/5 rounded-full overflow-hidden flex mb-6 border border-white/5">
-                  <div className="h-full bg-blue-600 transition-all duration-1000 shadow-[0_0_15px_rgba(37,99,235,0.4)]" style={{ width: `${yesProb}%` }} />
+                  <div className="h-full bg-green-600 transition-all duration-1000 shadow-[0_0_15px_rgba(34,197,94,0.4)]" style={{ width: `${yesProb}%` }} />
                   <div className="h-full bg-red-600 transition-all duration-1000 shadow-[0_0_15px_rgba(239,68,68,0.4)]" style={{ width: `${100-yesProb}%` }} />
                </div>
-               <TrendGraph yesProb={yesProb} marketId={merket.id} height={180} />
+               <TrendGraph yesProb={yesProb} marketId={merket.id} height={250} />
             </div>
             {merket.description && (
               <p className="text-lg font-bold opacity-60 italic mb-12 px-2 leading-relaxed">"{merket.description}"</p>
@@ -255,7 +259,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
           <button onClick={() => onVote(merket.id, selectedOption!)} disabled={!selectedOption || isVoting} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl hover:bg-blue-500 transition-all disabled:opacity-20 mt-4 shadow-xl uppercase italic tracking-tighter">{isVoting ? <Loader2 className="animate-spin mx-auto" /> : "Submit Vote"}</button>
           <div className="grid grid-cols-1 gap-3 mt-6">
             <button onClick={handleTweetAction} className="py-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase italic hover:bg-white/10 transition-all text-white/60">
-              <XIcon size={14} /> Share
+              <XIcon size={14} /> Share Analysis
             </button>
           </div>
         </div>
@@ -290,12 +294,12 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
       </div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2 text-[10px] font-black text-blue-400 uppercase italic tracking-widest"><span className="w-1.5 h-1.5 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></span><span>YES: {yesProb}%</span></div>
+          <div className="flex items-center gap-2 text-[10px] font-black text-green-400 uppercase italic tracking-widest"><span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span><span>YES: {yesProb}%</span></div>
           <div className="flex items-center gap-2 text-[10px] font-black text-red-400 uppercase italic tracking-widest"><span className="w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span><span>NO: {100-yesProb}%</span></div>
         </div>
         <div className="shrink-0 scale-90 md:scale-100"><ChanceIndicator percentage={yesProb} /></div>
       </div>
-      <TrendGraph yesProb={yesProb} marketId={merket.id} height={80} />
+      <TrendGraph yesProb={yesProb} marketId={merket.id} height={100} />
       <div className="grid grid-cols-2 gap-3 mb-6 mt-2">
         <button onClick={(e) => { e.stopPropagation(); onOpen(merket); }} className="flex items-center justify-center gap-2 bg-[#2d4a41]/40 hover:bg-[#345b4e]/60 text-[#4ade80] border border-[#3e6b5c] rounded-2xl py-3 px-2 font-black text-[10px] uppercase italic transition-all">Yes <ChevronUp size={14} /></button>
         <button onClick={(e) => { e.stopPropagation(); onOpen(merket); }} className="flex items-center justify-center gap-2 bg-[#4a3434]/40 hover:bg-[#5b3e3e]/60 text-[#fb7185] border border-[#6b3e3e] rounded-2xl py-3 px-2 font-black text-[10px] uppercase italic transition-all">No <ChevronDown size={14} /></button>
