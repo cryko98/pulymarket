@@ -4,7 +4,6 @@ import { createRoot } from 'react-dom/client';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import PredictionMerket from './components/PredictionMarket';
-import NewsTerminal from './components/NewsTerminal';
 import { ShieldCheck, Skull, TrendingUp, BarChart3, Globe, ArrowLeft, Terminal, Layout, Share2, Activity, Zap, Cpu, Search } from 'lucide-react';
 
 const AboutSection = () => (
@@ -156,14 +155,6 @@ function App() {
   const goToLanding = () => { window.location.hash = ''; };
   const goToTerminal = () => { window.location.hash = 'live-market'; };
 
-  const handleCreateFromNews = (item: any) => {
-    setPrefilledMarket({
-      question: item.suggestedQuestion,
-      description: `Ref: ${item.title}. ${item.summary}`
-    });
-    goToTerminal();
-  };
-
   const isTerminal = hash.startsWith('#live-market');
 
   return (
@@ -176,7 +167,6 @@ function App() {
             <Hero onStart={goToTerminal} />
             <AboutSection />
             <TerminalFeaturesSection />
-            <NewsTerminal onCreateMarketFromNews={handleCreateFromNews} />
           </div>
         ) : (
           <div className="pt-16 min-h-screen bg-blue-700 animate-in slide-in-from-right duration-500 flex flex-col">
@@ -213,7 +203,7 @@ function App() {
                 </div>
                 <span className="font-black italic text-white text-2xl drop-shadow-md uppercase tracking-tighter">POLYMARKET MEME</span>
             </div>
-            <p className="mb-2 font-black uppercase tracking-widest text-sm italic">© 2025 THE SOLE SURVIVOR</p>
+            <p className="mb-2 font-black uppercase tracking-widest text-sm italic">© 2025 THE POLYMARKET OF MEMES</p>
         </div>
       </footer>
     </div>

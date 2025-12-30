@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import Header from '../components/Header';
 import Hero from '../components/Hero';
 import PredictionMerket from '../components/PredictionMarket';
-import NewsTerminal from '../components/NewsTerminal';
 import { ShieldCheck, Skull, TrendingUp, BarChart3, Globe, ArrowLeft, Terminal, Layout, Share2, Activity, Zap, Cpu, Search } from 'lucide-react';
 
 const AboutSection = () => (
@@ -162,7 +161,6 @@ export default function App() {
             <Hero onStart={goToTerminal} />
             <AboutSection />
             <TerminalFeaturesSection />
-            <NewsTerminal />
           </div>
         ) : (
           <div className="pt-16 min-h-screen bg-blue-600 animate-in slide-in-from-right duration-500 flex flex-col">
@@ -190,7 +188,7 @@ export default function App() {
             </div>
             <span className="font-black italic text-white text-2xl uppercase tracking-tighter">Polymarket Meme</span>
         </div>
-        <p className="text-sm font-black uppercase tracking-widest italic opacity-50">© 2025 THE SOLE SURVIVOR</p>
+        <p className="text-sm font-black uppercase tracking-widest italic opacity-50">© 2025 THE POLYMARKET OF MEMES</p>
       </footer>
     </div>
   );

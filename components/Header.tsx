@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Copy, Check } from 'lucide-react';
 
@@ -48,7 +49,7 @@ const Header: React.FC<HeaderProps> = ({ onLogoClick }) => {
 
             {/* Follow on X Link */}
             <a 
-                href="https://x.com" 
+                href="https://x.com/polymarketbonk?s=21" 
                 target="_blank" 
                 rel="noreferrer"
                 className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 hover:bg-gray-100 rounded-full transition-all group shadow-md font-bold text-sm"
