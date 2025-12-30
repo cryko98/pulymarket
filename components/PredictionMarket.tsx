@@ -170,7 +170,8 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
   const handleTweetAction = () => {
     const slug = slugify(merket.question);
     const domain = window.location.origin;
-    const shareLink = `${domain}/${slug}`;
+    // Updated: Directly construct the hash link to ensure deep linking works in SPA
+    const shareLink = `${domain}/#live-market:${slug}`;
     const tweetText = `Terminal Analysis: "${merket.question}"\n\n${labelA}: ${yesProb}%\n${labelB}: ${100-yesProb}%\n\nVote on-chain:\n${shareLink}\n\n$Polymarket #Solana`;
     window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`, '_blank');
   };
