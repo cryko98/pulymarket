@@ -30,6 +30,27 @@ const SEED_DATA: PredictionMerket[] = [
   }
 ];
 
+// Helper to safely get local data with fallback
+const getLocalMarkets = (): PredictionMerket[] => {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return parsed;
+            }
+        }
+    } catch (e) {
+        console.error("Local storage error:", e);
+    }
+    
+    // Fallback: Initialize with seed data if storage is empty or invalid
+    // Deep copy to prevent reference issues
+    const seed = JSON.parse(JSON.stringify(SEED_DATA));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
+    return seed;
+};
+
 export const fetchMarketCap = async (ca: string): Promise<string | null> => {
   if (!ca || ca.length < 32) return null;
   try {
@@ -96,14 +117,8 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
     } catch (err) { console.error(err); }
   }
 
-  const stored = localStorage.getItem(STORAGE_KEY);
-  let localData: PredictionMerket[] = stored ? JSON.parse(stored) : [];
-  
-  if (localData.length === 0) {
-      localData = [...SEED_DATA];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(localData));
-  }
-  
+  // Use the robust local helper
+  const localData = getLocalMarkets();
   return localData.sort((a, b) => b.createdAt - a.createdAt);
 };
 
@@ -129,8 +144,7 @@ export const createMarket = async (market: Omit<PredictionMerket, 'id' | 'yesVot
         if (!error) return;
     }
 
-    const stored = localStorage.getItem(STORAGE_KEY);
-    const currentMarkets: PredictionMerket[] = stored ? JSON.parse(stored) : [];
+    const currentMarkets = getLocalMarkets();
     localStorage.setItem(STORAGE_KEY, JSON.stringify([newMarket, ...currentMarkets]));
 };
 
@@ -138,44 +152,44 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void
   const previousVote = getUserVote(id);
   if (previousVote === option) return;
 
-  // Save immediately to local storage so UI is consistent
+  // 1. Save User's Choice Locally (Instant persistence for UI state)
   saveUserVote(id, option);
 
   const numericId = parseInt(id);
   // Detect if this is a remote DB ID (numeric) or a local string ID
   const isRemoteId = !isNaN(numericId) && !id.startsWith('local-') && !id.startsWith('poly-');
 
+  // 2. Try Supabase Update
   if (isSupabaseConfigured() && supabase && isRemoteId) {
     try {
-        // Call RPC function to safely increment/decrement on server
         const { error } = await supabase.rpc('increment_vote', { 
             market_id: numericId, 
             vote_type: option,
             previous_vote: previousVote || null
         });
         
-        if (error) {
-            console.error("Supabase RPC Error:", error);
-            // If error, we might want to revert logic, but mostly we just log it
-        }
+        if (error) console.error("Supabase RPC Error:", error);
     } catch (err) {
         console.error("Failed to vote on supabase:", err);
     }
     return;
   }
   
-  // Local Storage Fallback
-  const stored = localStorage.getItem(STORAGE_KEY);
-  const merkets: PredictionMerket[] = stored ? JSON.parse(stored) : [];
+  // 3. Local Storage Update (Correct logic ensuring persistence)
+  const merkets = getLocalMarkets(); // GUARANTEED to have data (seed or existing)
+  
   const updated = merkets.map((m: PredictionMerket) => {
-    if (m.id !== id) return m;
+    // Convert both to string to be safe against number/string mismatches
+    if (String(m.id) !== String(id)) return m;
     
     let newYes = m.yesVotes;
     let newNo = m.noVotes;
 
+    // Remove old vote
     if (previousVote === 'YES') newYes = Math.max(0, newYes - 1);
     if (previousVote === 'NO') newNo = Math.max(0, newNo - 1);
 
+    // Add new vote
     if (option === 'YES') newYes += 1;
     if (option === 'NO') newNo += 1;
 
