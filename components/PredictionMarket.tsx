@@ -1,8 +1,9 @@
 
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { getMerkets, voteMerket, getUserVote, createMarket, getComments, postComment, fetchMarketCap } from '../services/marketService';
+import { isSupabaseConfigured } from '../services/supabaseClient';
 import { PredictionMerket as MerketType, MerketComment } from '../types';
-import { Loader2, X, Plus, MessageSquare, Star, ChevronUp, ChevronDown, Send, TrendingUp, BarChart, Zap } from 'lucide-react';
+import { Loader2, X, Plus, MessageSquare, Star, ChevronUp, ChevronDown, Send, TrendingUp, BarChart, Zap, Wifi, WifiOff } from 'lucide-react';
 
 const BRAND_LOGO = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
 
@@ -41,21 +42,15 @@ const TrendGraph: React.FC<{ yesProb: number; marketId: string; height?: number 
     for (let i = 0; i <= segments; i++) {
       const x = (i / segments) * width;
       const progress = i / segments;
-      
       const startValueYes = 50;
-      const startValueNo = 50;
-      
       const baseYes = startValueYes + (yesProb - startValueYes) * progress;
-      const baseNo = startValueNo + (noProb - startValueNo) * progress;
-      
+      const baseNo = (100 - startValueYes) + (noProb - (100 - startValueYes)) * progress;
       const noiseIntensity = (1 - progress) * 12; 
       const currentYes = i === segments ? yesProb : baseYes + (seededRandom() - 0.5) * noiseIntensity;
       const currentNo = i === segments ? noProb : baseNo + (seededRandom() - 0.5) * noiseIntensity;
-
       yesP.push(`${x},${mapValueToY(currentYes)}`);
       noP.push(`${x},${mapValueToY(currentNo)}`);
     }
-    
     return { yes: yesP.join(' '), no: noP.join(' '), mapValueToY };
   }, [yesProb, height, marketId]);
 
@@ -69,40 +64,19 @@ const TrendGraph: React.FC<{ yesProb: number; marketId: string; height?: number 
             <div key={i} className="w-full border-t border-white/20"></div>
           ))}
         </div>
-        
         <svg className="w-full h-full" viewBox={`0 0 600 ${height}`} preserveAspectRatio="none">
-          <polyline
-            fill="none"
-            stroke="#ef4444"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            points={points.no}
-            className="transition-all duration-700"
-          />
-          <polyline
-            fill="none"
-            stroke="#22c55e"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            points={points.yes}
-            className="transition-all duration-700"
-          />
+          <polyline fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={points.no} className="transition-all duration-700" />
+          <polyline fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={points.yes} className="transition-all duration-700" />
           <circle cx="600" cy={points.mapValueToY(yesProb)} r="6" fill="#22c55e" className="transition-all duration-700 shadow-lg" />
           <circle cx="600" cy={points.mapValueToY(noProb)} r="6" fill="#ef4444" className="transition-all duration-700 shadow-lg" />
         </svg>
-
         <div className="absolute bottom-2 left-3 bg-black/60 px-2 py-0.5 rounded-md text-[8px] md:text-[9px] font-black text-white/40 italic uppercase tracking-[0.2em] border border-white/5">
           POLY-MARKET.SITE
         </div>
       </div>
-
       <div className="w-10 md:w-14 flex flex-col justify-between items-center py-0.5 opacity-40 text-[8px] md:text-[10px] font-black text-white bg-black/40">
         {labels.map((val) => (
-          <div key={val} className="flex-1 flex items-center justify-center border-b border-white/5 w-full last:border-b-0 italic">
-            {val}%
-          </div>
+          <div key={val} className="flex-1 flex items-center justify-center border-b border-white/5 w-full last:border-b-0 italic">{val}%</div>
         ))}
       </div>
     </div>
@@ -113,19 +87,11 @@ const ChanceIndicator: React.FC<{ percentage: number }> = ({ percentage }) => {
   const radius = 26;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (percentage / 100) * circumference;
-  
   return (
     <div className="relative flex items-center justify-center w-20 h-20 md:w-24 md:h-24">
       <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 64 64">
         <circle cx="32" cy="32" r={radius} stroke="currentColor" strokeWidth="3.5" fill="transparent" className="text-white/5" />
-        <circle 
-          cx="32" cy="32" r={radius} 
-          stroke="currentColor" strokeWidth="3.5" fill="transparent" 
-          strokeDasharray={circumference} 
-          strokeDashoffset={offset} 
-          strokeLinecap="round" 
-          className="text-blue-500 transition-all duration-1000" 
-        />
+        <circle cx="32" cy="32" r={radius} stroke="currentColor" strokeWidth="3.5" fill="transparent" strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" className="text-blue-500 transition-all duration-1000" />
       </svg>
       <div className="absolute flex flex-col items-center justify-center text-center pointer-events-none translate-y-0.5">
         <span className="text-xl md:text-2xl font-black leading-none text-white tracking-tighter">{percentage}%</span>
@@ -140,18 +106,14 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
   const [newComment, setNewComment] = useState('');
   const [username, setUsername] = useState(localStorage.getItem('poly_username') || '');
   const [mcap, setMcap] = useState<string | null>(null);
-  
   const currentVote = getUserVote(merket.id);
   const [selectedOption, setSelectedOption] = useState<'YES' | 'NO' | null>(currentVote);
   const totalVotes = merket.yesVotes + merket.noVotes;
   const yesProb = totalVotes === 0 ? 50 : Math.round((merket.yesVotes / totalVotes) * 100);
-
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (merket.contractAddress) {
-      fetchMarketCap(merket.contractAddress).then(setMcap);
-    }
+    if (merket.contractAddress) fetchMarketCap(merket.contractAddress).then(setMcap);
   }, [merket.contractAddress]);
 
   useEffect(() => {
@@ -165,9 +127,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
   }, [merket.id]);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [comments]);
 
   const handlePostComment = async (e: React.FormEvent) => {
@@ -200,14 +160,12 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
               </div>
               <h2 className="text-2xl md:text-5xl font-black uppercase italic tracking-tighter leading-none">{merket.question}</h2>
             </div>
-
             {mcap && (
               <div className="mb-4 md:mb-6 flex items-center gap-3 bg-blue-500/10 border border-blue-500/20 px-4 py-2 md:px-6 md:py-3 rounded-xl md:rounded-2xl w-fit">
                 <BarChart size={16} className="text-blue-400" />
                 <span className="text-blue-400 font-black uppercase italic tracking-widest text-[10px] md:text-sm">MCAP: ${mcap}</span>
               </div>
             )}
-
             <div className="mb-6 md:mb-8 p-4 md:p-8 bg-white/5 rounded-[1.5rem] md:rounded-[2rem] border border-white/5 relative">
                <div className="flex justify-between items-end mb-4 md:mb-6 font-black italic uppercase tracking-tighter">
                   <div className="flex flex-col"><span className="text-green-400 text-[8px] md:text-[10px] tracking-widest mb-1 opacity-60 italic uppercase font-black">Bullish Signal</span><span className="text-2xl md:text-4xl text-green-500">{yesProb}% YES</span></div>
@@ -219,15 +177,9 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
                </div>
                <TrendGraph yesProb={yesProb} marketId={merket.id} height={180} />
             </div>
-            
-            {merket.description && (
-              <p className="text-sm md:text-lg font-bold opacity-60 italic mb-8 md:mb-12 px-2 leading-relaxed">"{merket.description}"</p>
-            )}
-
+            {merket.description && <p className="text-sm md:text-lg font-bold opacity-60 italic mb-8 md:mb-12 px-2 leading-relaxed">"{merket.description}"</p>}
             <div className="mt-4 md:mt-8 border-t border-white/10 pt-6 md:pt-8">
-              <h4 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.4em] text-white/30 mb-4 md:mb-6 flex items-center gap-2 italic">
-                <MessageSquare size={14} /> Global Feed
-              </h4>
+              <h4 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.4em] text-white/30 mb-4 md:mb-6 flex items-center gap-2 italic"><MessageSquare size={14} /> Global Feed</h4>
               <div ref={scrollRef} className="space-y-3 md:space-y-4 max-h-48 md:max-h-64 overflow-y-auto custom-scroll pr-2 md:pr-4 mb-4 md:mb-6">
                 {comments.length === 0 ? <div className="text-center py-6 md:py-8 opacity-20 italic text-xs md:text-sm">Awaiting terminal signals...</div> :
                   comments.map((c) => (
@@ -253,9 +205,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
           </div>
           <div className="flex-1 md:flex-none flex flex-col md:flex-col gap-2">
             <button onClick={() => onVote(merket.id, selectedOption!)} disabled={!selectedOption || isVoting} className="w-full h-full md:h-auto bg-blue-600 text-white font-black py-3 md:py-5 rounded-xl md:rounded-2xl hover:bg-blue-500 transition-all disabled:opacity-20 shadow-xl uppercase italic tracking-tighter text-xs md:text-lg">{isVoting ? <Loader2 className="animate-spin mx-auto" size={16} /> : "Submit Vote"}</button>
-            <button onClick={handleTweetAction} className="hidden md:flex w-full py-4 bg-white/5 border border-white/10 rounded-2xl items-center justify-center gap-2 text-[10px] font-black uppercase italic hover:bg-white/10 transition-all text-white/60">
-              <XIcon size={14} /> Share Analysis
-            </button>
+            <button onClick={handleTweetAction} className="hidden md:flex w-full py-4 bg-white/5 border border-white/10 rounded-2xl items-center justify-center gap-2 text-[10px] font-black uppercase italic hover:bg-white/10 transition-all text-white/60"><XIcon size={14} /> Share Analysis</button>
           </div>
         </div>
       </div>
@@ -267,23 +217,15 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
   const [mcap, setMcap] = useState<string | null>(null);
   const totalVotes = merket.yesVotes + merket.noVotes;
   const yesProb = totalVotes === 0 ? 50 : Math.round((merket.yesVotes / totalVotes) * 100);
-
   useEffect(() => {
-    if (merket.contractAddress) {
-      fetchMarketCap(merket.contractAddress).then(setMcap);
-    }
+    if (merket.contractAddress) fetchMarketCap(merket.contractAddress).then(setMcap);
   }, [merket.contractAddress]);
-  
   return (
     <div className="bg-[#1e293b] border border-white/5 rounded-[1.5rem] md:rounded-3xl p-5 md:p-6 flex flex-col h-full hover:bg-[#253247] transition-all cursor-pointer group shadow-xl relative overflow-hidden" onClick={() => onOpen(merket)}>
       <div className="flex justify-between items-start gap-4 mb-3 md:mb-4 min-h-[56px] md:min-h-[64px]">
         <div className="flex-1">
           <h3 className="text-base md:text-xl font-black text-white leading-tight group-hover:text-blue-400 transition-colors line-clamp-2 uppercase italic tracking-tighter mb-1.5 md:mb-2">{merket.question}</h3>
-          {mcap && (
-            <div className="flex items-center gap-1.5 text-blue-400 font-mono text-[8px] md:text-[9px] uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded w-fit">
-              <BarChart size={10} /> MCAP: ${mcap}
-            </div>
-          )}
+          {mcap && <div className="flex items-center gap-1.5 text-blue-400 font-mono text-[8px] md:text-[9px] uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded w-fit"><BarChart size={10} /> MCAP: ${mcap}</div>}
         </div>
         <div className="shrink-0"><img src={merket.image || BRAND_LOGO} className="w-9 h-9 md:w-10 md:h-10 rounded-lg md:rounded-xl border border-white/10 object-cover shadow-lg" /></div>
       </div>
@@ -307,14 +249,7 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
   );
 };
 
-interface CreateMarketModalProps {
-  onClose: () => void;
-  onCreated: () => void;
-  initialQuestion?: string;
-  initialDescription?: string;
-}
-
-const CreateMarketModal: React.FC<CreateMarketModalProps> = ({ onClose, onCreated, initialQuestion = '', initialDescription = '' }) => {
+const CreateMarketModal: React.FC<{ onClose: () => void; onCreated: () => void; initialQuestion?: string; initialDescription?: string; }> = ({ onClose, onCreated, initialQuestion = '', initialDescription = '' }) => {
     const [question, setQuestion] = useState(initialQuestion);
     const [description, setDescription] = useState(initialDescription);
     const [contractAddress, setContractAddress] = useState('');
@@ -322,7 +257,6 @@ const CreateMarketModal: React.FC<CreateMarketModalProps> = ({ onClose, onCreate
     const [preview, setPreview] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
@@ -331,23 +265,15 @@ const CreateMarketModal: React.FC<CreateMarketModalProps> = ({ onClose, onCreate
             reader.readAsDataURL(file);
         }
     };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault(); if (!question.trim()) return;
         setLoading(true);
         try { 
-          await createMarket({ 
-            question, 
-            description: description || undefined, 
-            contractAddress: contractAddress || undefined, 
-            image: image || BRAND_LOGO 
-          }); 
+          await createMarket({ question, description, contractAddress, image: image || BRAND_LOGO }); 
           onCreated(); 
           onClose(); 
-        } 
-        catch (err) { console.error(err); } finally { setLoading(false); }
+        } catch (err) { } finally { setLoading(false); }
     };
-
     return (
         <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/95 backdrop-blur-xl p-3 md:p-4">
             <div className="bg-white w-full max-w-xl rounded-[1.5rem] md:rounded-[2.5rem] p-6 md:p-10 relative overflow-hidden shadow-2xl text-blue-900 max-h-[90vh] overflow-y-auto custom-scroll">
@@ -365,18 +291,14 @@ const CreateMarketModal: React.FC<CreateMarketModalProps> = ({ onClose, onCreate
     );
 };
 
-interface PredictionMarketProps {
-  initialCreateData?: { question: string, description: string } | null;
-  onClearInitialData?: () => void;
-}
-
-const PredictionMarket: React.FC<PredictionMarketProps> = ({ initialCreateData, onClearInitialData }) => {
+const PredictionMarket: React.FC<{ initialCreateData?: { question: string, description: string } | null; onClearInitialData?: () => void; }> = ({ initialCreateData, onClearInitialData }) => {
   const [merkets, setMerkets] = useState<MerketType[]>([]);
   const [selectedMerket, setSelectedMerket] = useState<MerketType | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'top' | 'new' | 'trending'>('top');
+  const [isOnline, setIsOnline] = useState(isSupabaseConfigured());
 
   const refreshMarkets = () => {
       setLoading(true);
@@ -384,6 +306,7 @@ const PredictionMarket: React.FC<PredictionMarketProps> = ({ initialCreateData, 
   };
 
   useEffect(() => {
+    setIsOnline(isSupabaseConfigured());
     getMerkets().then(data => {
       setMerkets(data);
       setLoading(false);
@@ -396,11 +319,7 @@ const PredictionMarket: React.FC<PredictionMarketProps> = ({ initialCreateData, 
     });
   }, []);
 
-  useEffect(() => {
-    if (initialCreateData) {
-      setIsCreateOpen(true);
-    }
-  }, [initialCreateData]);
+  useEffect(() => { if (initialCreateData) setIsCreateOpen(true); }, [initialCreateData]);
 
   const handleVote = async (id: string, option: 'YES' | 'NO') => {
     setActionLoading(true); await voteMerket(id, option);
@@ -425,14 +344,16 @@ const PredictionMarket: React.FC<PredictionMarketProps> = ({ initialCreateData, 
     }
   }, [merkets, activeFilter]);
 
-  const handleCloseCreate = () => {
-    setIsCreateOpen(false);
-    onClearInitialData?.();
-  };
-
   return (
     <section id="merkets" className="pb-10">
       <div className="container mx-auto px-4">
+        {/* Connection Status Indicator */}
+        {!isOnline && (
+            <div className="mb-6 bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl flex items-center gap-3 text-amber-500 text-xs font-black uppercase italic tracking-widest">
+                <WifiOff size={16} /> Supabase connection inactive. Running in local demo mode. Check VITE_ env variables.
+            </div>
+        )}
+        
         <div className="flex flex-col md:flex-row items-center gap-4 mb-8 md:mb-12 pb-5 border-b border-white/5">
             <div className="flex items-center bg-white/5 p-1 rounded-xl md:rounded-2xl border border-white/10 shadow-lg w-full md:w-auto overflow-x-auto no-scrollbar">
                 <button onClick={() => setActiveFilter('top')} className={`flex-1 md:flex-none px-4 md:px-5 py-2 md:py-2.5 rounded-lg md:rounded-xl font-black text-[10px] md:text-xs uppercase italic tracking-widest transition-all whitespace-nowrap ${activeFilter === 'top' ? 'bg-blue-600 text-white shadow-xl' : 'text-white/40 hover:text-white'}`}>Top</button>
@@ -447,7 +368,6 @@ const PredictionMarket: React.FC<PredictionMarketProps> = ({ initialCreateData, 
         </div>
         {loading ? (
             <div className="flex flex-col items-center justify-center py-16 md:py-20 gap-4">
-                {/* Fix: removed invalid md:size prop and used className for responsive sizing */}
                 <Loader2 className="animate-spin text-blue-500 w-10 h-10 md:w-14 md:h-14" />
                 <span className="font-black text-[8px] md:text-[10px] text-white/30 uppercase tracking-[0.4em] md:tracking-[0.8em] italic">Syncing Terminal...</span>
             </div>
@@ -458,14 +378,7 @@ const PredictionMarket: React.FC<PredictionMarketProps> = ({ initialCreateData, 
         )}
       </div>
       {selectedMerket && <MerketDetailModal merket={selectedMerket} onClose={() => { setSelectedMerket(null); window.location.hash = 'live-market'; }} onVote={handleVote} isVoting={actionLoading} />}
-      {isCreateOpen && (
-        <CreateMarketModal 
-          onClose={handleCloseCreate} 
-          onCreated={refreshMarkets} 
-          initialQuestion={initialCreateData?.question}
-          initialDescription={initialCreateData?.description}
-        />
-      )}
+      {isCreateOpen && <CreateMarketModal onClose={() => { setIsCreateOpen(false); onClearInitialData?.(); }} onCreated={refreshMarkets} initialQuestion={initialCreateData?.question} initialDescription={initialCreateData?.description} />}
     </section>
   );
 };
