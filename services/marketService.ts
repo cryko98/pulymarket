@@ -2,7 +2,7 @@
 import { PredictionMerket, MerketComment } from '../types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
-const STORAGE_KEY = 'poly_market_data_v2';
+const STORAGE_KEY = 'poly_market_data_v3';
 const COMMENTS_KEY = 'poly_market_comments_v1';
 const USER_VOTES_KEY = 'poly_user_votes_v3'; 
 const BRAND_LOGO = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
@@ -25,9 +25,28 @@ const SEED_DATA: PredictionMerket[] = [
     noVotes: 69,
     createdAt: Date.now(),
     image: BRAND_LOGO,
-    description: "The ultimate survival metric. Monitoring growth velocity across the Solana ecosystem."
+    description: "The ultimate survival metric. Monitoring growth velocity across the Solana ecosystem.",
+    contractAddress: "9ftnbzpAP4SUkmHMoFuX4ofvDXCHxbrTXKiSFL4Wpump"
   }
 ];
+
+export const fetchMarketCap = async (ca: string): Promise<string | null> => {
+  if (!ca || ca.length < 32) return null;
+  try {
+    const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
+    const data = await response.json();
+    if (data.pairs && data.pairs.length > 0) {
+      const mcap = data.pairs[0].fdv || data.pairs[0].marketCap;
+      if (mcap >= 1000000) return `${(mcap / 1000000).toFixed(2)}M`;
+      if (mcap >= 1000) return `${(mcap / 1000).toFixed(1)}K`;
+      return `${mcap}`;
+    }
+    return "N/A";
+  } catch (err) {
+    console.error("Dexscreener fetch error:", err);
+    return null;
+  }
+};
 
 export const getUserVote = (merketId: string): 'YES' | 'NO' | null => {
   try {
@@ -59,7 +78,7 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
     try {
       const { data, error } = await supabase
         .from('markets')
-        .select('id, question, yes_votes, no_votes, created_at, image, description')
+        .select('id, question, yes_votes, no_votes, created_at, image, description, contract_address')
         .order('created_at', { ascending: false });
       
       if (!error && data) {
@@ -70,7 +89,8 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
           noVotes: parseInt(item.no_votes || 0),
           createdAt: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
           image: item.image,
-          description: item.description || FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)]
+          description: item.description || FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)],
+          contractAddress: item.contract_address
         }));
       }
     } catch (err) { console.error(err); }
@@ -79,7 +99,6 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
   const stored = localStorage.getItem(STORAGE_KEY);
   let localData: PredictionMerket[] = stored ? JSON.parse(stored) : [];
   
-  // Always ensure seed data exists in local storage if empty
   if (localData.length === 0) {
       localData = [...SEED_DATA];
       localStorage.setItem(STORAGE_KEY, JSON.stringify(localData));
@@ -104,7 +123,8 @@ export const createMarket = async (market: Omit<PredictionMerket, 'id' | 'yesVot
             description: market.description,
             image: market.image,
             yes_votes: 0,
-            no_votes: 0
+            no_votes: 0,
+            contract_address: market.contractAddress
         }]);
         if (!error) return;
     }

@@ -7,6 +7,7 @@ export interface PredictionMerket {
   createdAt: number;
   image?: string;
   description?: string;
+  contractAddress?: string; // Optional Solana CA
 }
 
 export interface MerketComment {

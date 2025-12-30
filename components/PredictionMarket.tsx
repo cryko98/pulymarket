@@ -1,8 +1,8 @@
 
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { getMerkets, voteMerket, getUserVote, createMarket, getComments, postComment } from '../services/marketService';
+import { getMerkets, voteMerket, getUserVote, createMarket, getComments, postComment, fetchMarketCap } from '../services/marketService';
 import { PredictionMerket as MerketType, MerketComment } from '../types';
-import { Loader2, X, Plus, MessageSquare, Star, ChevronUp, ChevronDown, Download, Send, TrendingUp } from 'lucide-react';
+import { Loader2, X, Plus, MessageSquare, Star, ChevronUp, ChevronDown, Download, Send, TrendingUp, BarChart, Zap } from 'lucide-react';
 
 const BRAND_LOGO = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
 
@@ -14,54 +14,101 @@ const XIcon = ({ size = 16, className = "" }) => (
   </svg>
 );
 
-const TrendGraph: React.FC<{ yesProb: number; height?: number }> = ({ yesProb, height = 60 }) => {
+const TrendGraph: React.FC<{ yesProb: number; marketId: string; height?: number }> = ({ yesProb, marketId, height = 140 }) => {
+  const noProb = 100 - yesProb;
+  
   const points = useMemo(() => {
-    const p = [];
-    const segments = 15;
-    const width = 200;
-    const baseLine = height / 2;
-    const trend = (yesProb - 50) / 50; 
+    const yesP = [];
+    const noP = [];
+    const segments = 40;
+    const width = 400;
+    
+    // Seeded random for consistent "history" per market
+    let seed = marketId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const seededRandom = () => {
+      seed = (seed * 9301 + 49297) % 233280;
+      return seed / 233280;
+    };
+
+    // We map a range centered around 50% for high detail, or 0-100 if extreme.
+    const minY = 40;
+    const maxY = 60;
+    const range = maxY - minY;
+
+    const mapValueToY = (val: number) => {
+      const normalized = (val - minY) / range;
+      return height - (normalized * height);
+    };
 
     for (let i = 0; i <= segments; i++) {
       const x = (i / segments) * width;
-      const jitter = Math.sin(i * 1.8 + yesProb) * 6;
-      const trendY = baseLine - (trend * (i / segments) * (height / 2.5)) + jitter;
-      p.push(`${x},${Math.max(5, Math.min(height - 5, trendY))}`);
-    }
-    return p.join(' ');
-  }, [yesProb, height]);
+      const progress = i / segments;
+      
+      const noise = (seededRandom() - 0.5) * (1 - progress) * 8;
+      
+      const currentYes = i === segments ? yesProb : yesProb + noise;
+      const currentNo = i === segments ? noProb : noProb - noise;
 
-  const isBullish = yesProb >= 50;
-  const color = isBullish ? '#10b981' : '#f43f5e';
+      yesP.push(`${x},${mapValueToY(currentYes)}`);
+      noP.push(`${x},${mapValueToY(currentNo)}`);
+    }
+    
+    return { yes: yesP.join(' '), no: noP.join(' '), mapValueToY };
+  }, [yesProb, height, marketId]);
+
+  const labels = [56, 54, 52, 50, 48, 46, 44];
 
   return (
-    <div className="w-full relative overflow-hidden h-[60px] mt-2 mb-4 bg-white/[0.02] rounded-lg border border-white/5">
-      <svg className="w-full h-full" viewBox="0 0 200 60" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id={`grad-${yesProb}`} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" style={{ stopColor: color, stopOpacity: 0.15 }} />
-            <stop offset="100%" style={{ stopColor: color, stopOpacity: 0 }} />
-          </linearGradient>
-        </defs>
-        <path
-          d={`M0,60 L0,30 ${points.split(' ').map((p, i) => (i === 0 ? `L${p}` : `L${p}`)).join(' ')} L200,60 Z`}
-          fill={`url(#grad-${yesProb})`}
-          className="transition-all duration-1000"
-        />
-        <polyline
-          fill="none"
-          stroke={color}
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          points={points}
-          className="transition-all duration-1000"
-          style={{ filter: `drop-shadow(0 0 4px ${color}88)` }}
-        />
-      </svg>
-      <div className="absolute top-1 right-2 flex items-center gap-1">
-        <div className={`w-1 h-1 rounded-full animate-pulse`} style={{ backgroundColor: color }}></div>
-        <span className="text-[7px] font-black uppercase tracking-tighter opacity-30 text-white">Sentiment Trend</span>
+    <div className="w-full relative flex bg-[#111827] rounded-xl border border-white/5 my-6 overflow-hidden" style={{ height: `${height}px` }}>
+      {/* Left part: Graph */}
+      <div className="flex-1 relative border-r border-white/5">
+        {/* Horizontal Grid lines */}
+        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+          {labels.map((_, i) => (
+            <div key={i} className="w-full border-t border-dashed border-white/20"></div>
+          ))}
+        </div>
+        
+        <svg className="w-full h-full p-0" viewBox={`0 0 400 ${height}`} preserveAspectRatio="none">
+          {/* NO Line (Red) */}
+          <polyline
+            fill="none"
+            stroke="#ef4444"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            points={points.no}
+            className="transition-all duration-700"
+          />
+          {/* YES Line (Blue) */}
+          <polyline
+            fill="none"
+            stroke="#3b82f6"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            points={points.yes}
+            className="transition-all duration-700"
+          />
+          
+          {/* Terminal Dots */}
+          <circle cx="400" cy={points.mapValueToY(yesProb)} r="4" fill="#3b82f6" className="transition-all duration-700" />
+          <circle cx="400" cy={points.mapValueToY(noProb)} r="4" fill="#ef4444" className="transition-all duration-700" />
+        </svg>
+
+        {/* Source overlay */}
+        <div className="absolute bottom-2 left-3 bg-black/40 px-2 py-0.5 rounded text-[8px] font-bold text-white/30 italic uppercase tracking-widest">
+          Source: poly-market.site
+        </div>
+      </div>
+
+      {/* Right part: Y-Axis Labels */}
+      <div className="w-10 flex flex-col justify-between items-center py-0 opacity-40 text-[9px] font-bold text-white/80 bg-black/20">
+        {labels.map((val) => (
+          <div key={val} className="flex-1 flex items-center justify-center border-b border-white/5 w-full last:border-b-0">
+            {val}%
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -97,7 +144,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
   const [comments, setComments] = useState<MerketComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [username, setUsername] = useState(localStorage.getItem('poly_username') || '');
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [mcap, setMcap] = useState<string | null>(null);
   
   const currentVote = getUserVote(merket.id);
   const [selectedOption, setSelectedOption] = useState<'YES' | 'NO' | null>(currentVote);
@@ -105,6 +152,12 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
   const yesProb = totalVotes === 0 ? 50 : Math.round((merket.yesVotes / totalVotes) * 100);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (merket.contractAddress) {
+      fetchMarketCap(merket.contractAddress).then(setMcap);
+    }
+  }, [merket.contractAddress]);
 
   useEffect(() => {
     const fetchComments = async () => {
@@ -132,134 +185,6 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
     setComments(updated);
   };
 
-  const handleDownloadCard = async () => {
-    setIsDownloading(true);
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    canvas.width = 1000;
-    canvas.height = 1000;
-
-    // Background - Dark Terminal Style
-    ctx.fillStyle = '#0a0f1d';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Question Section + Image
-    const logoImg = new Image();
-    logoImg.crossOrigin = "anonymous";
-    logoImg.src = merket.image || BRAND_LOGO;
-    await new Promise(r => logoImg.onload = r);
-    
-    // Rounded Image Clipping
-    ctx.save();
-    ctx.beginPath();
-    ctx.roundRect(60, 60, 120, 120, 25);
-    ctx.clip();
-    ctx.drawImage(logoImg, 60, 60, 120, 120);
-    ctx.restore();
-
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'italic 900 64px Space Grotesk';
-    ctx.textBaseline = 'top';
-    const words = merket.question.toUpperCase().split(' ');
-    let line = '';
-    let y = 60;
-    for(let n = 0; n < words.length; n++) {
-      let testLine = line + words[n] + ' ';
-      let metrics = ctx.measureText(testLine);
-      if (metrics.width > 700 && n > 0) {
-        ctx.fillText(line, 210, y);
-        line = words[n] + ' ';
-        y += 75;
-      } else { line = testLine; }
-    }
-    ctx.fillText(line, 210, y);
-
-    // Sentiment Box
-    const boxY = Math.max(250, y + 140);
-    ctx.fillStyle = 'rgba(255,255,255,0.03)';
-    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-    ctx.lineWidth = 2;
-    ctx.roundRect(60, boxY, 880, 420, 50);
-    ctx.fill();
-    ctx.stroke();
-
-    // Box Header Text
-    ctx.font = 'italic 900 20px Space Grotesk';
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
-    ctx.fillText('BULLISH SENTIMENT', 100, boxY + 40);
-    ctx.textAlign = 'right';
-    ctx.fillText('BEARISH SENTIMENT', 900, boxY + 40);
-    ctx.textAlign = 'left';
-
-    // Box Percentages
-    ctx.font = 'italic 900 96px Space Grotesk';
-    ctx.fillStyle = '#3b82f6';
-    ctx.fillText(`${yesProb}% YES`, 100, boxY + 80);
-    ctx.textAlign = 'right';
-    ctx.fillStyle = '#ef4444';
-    ctx.fillText(`${100-yesProb}% NO`, 900, boxY + 80);
-    ctx.textAlign = 'left';
-
-    // Sentiment Bar
-    ctx.fillStyle = 'rgba(255,255,255,0.1)';
-    ctx.roundRect(100, boxY + 200, 800, 20, 10);
-    ctx.fill();
-    ctx.fillStyle = '#3b82f6';
-    ctx.roundRect(100, boxY + 200, (800 * yesProb) / 100, 20, 10);
-    ctx.fill();
-
-    // Trend Graph Area
-    ctx.strokeStyle = '#10b981';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(100, boxY + 360);
-    for(let i=0; i<=20; i++) {
-        const x = 100 + (i * 40);
-        const jitter = Math.sin(i * 1.5 + yesProb) * 15;
-        const ty = (boxY + 360) - ((yesProb - 50) / 3) + jitter;
-        ctx.lineTo(x, ty);
-    }
-    ctx.stroke();
-    ctx.font = 'italic 900 12px Space Grotesk';
-    ctx.fillStyle = '#10b981';
-    ctx.textAlign = 'right';
-    ctx.fillText('SENTIMENT TREND', 900, boxY + 310);
-    ctx.textAlign = 'left';
-
-    // Market Description
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.font = 'italic 700 32px Space Grotesk';
-    ctx.textAlign = 'center';
-    const descText = `"${merket.description}"`;
-    const descWords = descText.split(' ');
-    let descLine = '';
-    let dy = boxY + 480;
-    for(let n = 0; n < descWords.length; n++) {
-      let testLine = descLine + descWords[n] + ' ';
-      let metrics = ctx.measureText(testLine);
-      if (metrics.width > 800 && n > 0) {
-        ctx.fillText(descLine, 500, dy);
-        descLine = descWords[n] + ' ';
-        dy += 45;
-      } else { descLine = testLine; }
-    }
-    ctx.fillText(descLine, 500, dy);
-
-    // Global Feed Footer
-    ctx.textAlign = 'left';
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.font = '900 24px Space Grotesk';
-    ctx.fillText('GLOBAL FEED', 60, 930);
-
-    const link = document.createElement('a');
-    link.download = `market-card-${slugify(merket.question)}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-    setIsDownloading(false);
-  };
-
   const handleTweetAction = () => {
     const slug = slugify(merket.question);
     const domain = window.location.origin;
@@ -280,6 +205,14 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
               </div>
               <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-[0.9]">{merket.question}</h2>
             </div>
+
+            {mcap && (
+              <div className="mb-6 flex items-center gap-3 bg-blue-500/10 border border-blue-500/20 px-6 py-3 rounded-2xl w-fit">
+                <BarChart size={18} className="text-blue-400" />
+                <span className="text-blue-400 font-black uppercase italic tracking-widest text-sm">MCAP: ${mcap}</span>
+              </div>
+            )}
+
             <div className="mb-8 p-8 bg-white/5 rounded-[2rem] border border-white/5 relative">
                <div className="flex justify-between items-end mb-6 font-black italic uppercase tracking-tighter">
                   <div className="flex flex-col"><span className="text-blue-400 text-[10px] tracking-widest mb-1 opacity-40 italic">Bullish Sentiment</span><span className="text-4xl text-blue-500">{yesProb}% YES</span></div>
@@ -289,9 +222,11 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
                   <div className="h-full bg-blue-600 transition-all duration-1000 shadow-[0_0_15px_rgba(37,99,235,0.4)]" style={{ width: `${yesProb}%` }} />
                   <div className="h-full bg-red-600 transition-all duration-1000 shadow-[0_0_15px_rgba(239,68,68,0.4)]" style={{ width: `${100-yesProb}%` }} />
                </div>
-               <TrendGraph yesProb={yesProb} height={80} />
+               <TrendGraph yesProb={yesProb} marketId={merket.id} height={180} />
             </div>
-            <p className="text-lg font-bold opacity-60 italic mb-12 px-2 leading-relaxed">"{merket.description}"</p>
+            {merket.description && (
+              <p className="text-lg font-bold opacity-60 italic mb-12 px-2 leading-relaxed">"{merket.description}"</p>
+            )}
             <div className="mt-8 border-t border-white/10 pt-8">
               <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30 mb-6 flex items-center gap-2 italic">
                 <MessageSquare size={14} /> Global Feed
@@ -318,12 +253,9 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
           <button onClick={() => setSelectedOption('YES')} className={`w-full py-5 rounded-2xl font-black text-lg border transition-all uppercase italic tracking-tighter ${selectedOption === 'YES' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-transparent border-white/5 hover:border-white/20 text-white/40'}`}>Yes Signal</button>
           <button onClick={() => setSelectedOption('NO')} className={`w-full py-5 rounded-2xl font-black text-lg border transition-all uppercase italic tracking-tighter ${selectedOption === 'NO' ? 'bg-rose-500/20 border-rose-500 text-rose-400' : 'bg-transparent border-white/5 hover:border-white/20 text-white/40'}`}>No Signal</button>
           <button onClick={() => onVote(merket.id, selectedOption!)} disabled={!selectedOption || isVoting} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl hover:bg-blue-500 transition-all disabled:opacity-20 mt-4 shadow-xl uppercase italic tracking-tighter">{isVoting ? <Loader2 className="animate-spin mx-auto" /> : "Submit Vote"}</button>
-          <div className="grid grid-cols-2 gap-3 mt-6">
+          <div className="grid grid-cols-1 gap-3 mt-6">
             <button onClick={handleTweetAction} className="py-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase italic hover:bg-white/10 transition-all text-white/60">
               <XIcon size={14} /> Share
-            </button>
-            <button onClick={handleDownloadCard} disabled={isDownloading} className="py-4 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-black uppercase italic hover:bg-white/10 transition-all text-white/60">
-              {isDownloading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14}/>} Download Card
             </button>
           </div>
         </div>
@@ -333,13 +265,27 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
 };
 
 const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void }> = ({ merket, onOpen }) => {
+  const [mcap, setMcap] = useState<string | null>(null);
   const totalVotes = merket.yesVotes + merket.noVotes;
   const yesProb = totalVotes === 0 ? 50 : Math.round((merket.yesVotes / totalVotes) * 100);
+
+  useEffect(() => {
+    if (merket.contractAddress) {
+      fetchMarketCap(merket.contractAddress).then(setMcap);
+    }
+  }, [merket.contractAddress]);
   
   return (
     <div className="bg-[#1e293b] border border-white/5 rounded-3xl p-6 flex flex-col h-full hover:bg-[#253247] transition-all cursor-pointer group shadow-xl relative overflow-hidden" onClick={() => onOpen(merket)}>
       <div className="flex justify-between items-start gap-4 mb-4 min-h-[64px]">
-        <div className="flex-1"><h3 className="text-lg md:text-xl font-black text-white leading-tight group-hover:text-blue-400 transition-colors line-clamp-2 uppercase italic tracking-tighter">{merket.question}</h3></div>
+        <div className="flex-1">
+          <h3 className="text-lg md:text-xl font-black text-white leading-tight group-hover:text-blue-400 transition-colors line-clamp-2 uppercase italic tracking-tighter mb-2">{merket.question}</h3>
+          {mcap && (
+            <div className="flex items-center gap-1.5 text-blue-400 font-mono text-[9px] uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded w-fit">
+              <BarChart size={10} /> MCAP: ${mcap}
+            </div>
+          )}
+        </div>
         <div className="shrink-0"><img src={merket.image || BRAND_LOGO} className="w-10 h-10 rounded-xl border border-white/10 object-cover shadow-lg" /></div>
       </div>
       <div className="flex items-center justify-between mb-4">
@@ -349,7 +295,7 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
         </div>
         <div className="shrink-0 scale-90 md:scale-100"><ChanceIndicator percentage={yesProb} /></div>
       </div>
-      <TrendGraph yesProb={yesProb} />
+      <TrendGraph yesProb={yesProb} marketId={merket.id} height={80} />
       <div className="grid grid-cols-2 gap-3 mb-6 mt-2">
         <button onClick={(e) => { e.stopPropagation(); onOpen(merket); }} className="flex items-center justify-center gap-2 bg-[#2d4a41]/40 hover:bg-[#345b4e]/60 text-[#4ade80] border border-[#3e6b5c] rounded-2xl py-3 px-2 font-black text-[10px] uppercase italic transition-all">Yes <ChevronUp size={14} /></button>
         <button onClick={(e) => { e.stopPropagation(); onOpen(merket); }} className="flex items-center justify-center gap-2 bg-[#4a3434]/40 hover:bg-[#5b3e3e]/60 text-[#fb7185] border border-[#6b3e3e] rounded-2xl py-3 px-2 font-black text-[10px] uppercase italic transition-all">No <ChevronDown size={14} /></button>
@@ -362,13 +308,22 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
   );
 };
 
-const CreateMarketModal: React.FC<{ onClose: () => void; onCreated: () => void }> = ({ onClose, onCreated }) => {
-    const [question, setQuestion] = useState('');
-    const [description, setDescription] = useState('');
+interface CreateMarketModalProps {
+  onClose: () => void;
+  onCreated: () => void;
+  initialQuestion?: string;
+  initialDescription?: string;
+}
+
+const CreateMarketModal: React.FC<CreateMarketModalProps> = ({ onClose, onCreated, initialQuestion = '', initialDescription = '' }) => {
+    const [question, setQuestion] = useState(initialQuestion);
+    const [description, setDescription] = useState(initialDescription);
+    const [contractAddress, setContractAddress] = useState('');
     const [image, setImage] = useState('');
     const [preview, setPreview] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
@@ -377,20 +332,32 @@ const CreateMarketModal: React.FC<{ onClose: () => void; onCreated: () => void }
             reader.readAsDataURL(file);
         }
     };
+
     const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); if (!question.trim() || !description.trim()) return;
+        e.preventDefault(); if (!question.trim()) return;
         setLoading(true);
-        try { await createMarket({ question, description, image: image || BRAND_LOGO }); onCreated(); onClose(); } 
+        try { 
+          await createMarket({ 
+            question, 
+            description: description || undefined, 
+            contractAddress: contractAddress || undefined, 
+            image: image || BRAND_LOGO 
+          }); 
+          onCreated(); 
+          onClose(); 
+        } 
         catch (err) { console.error(err); } finally { setLoading(false); }
     };
+
     return (
         <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4">
-            <div className="bg-white w-full max-w-xl rounded-[2.5rem] p-8 md:p-10 relative overflow-hidden shadow-2xl text-blue-900">
+            <div className="bg-white w-full max-w-xl rounded-[2.5rem] p-8 md:p-10 relative overflow-hidden shadow-2xl text-blue-900 max-h-[90vh] overflow-y-auto custom-scroll">
                 <button onClick={onClose} className="absolute top-6 right-6 p-2 bg-blue-100 text-blue-900 rounded-full"><X size={20} /></button>
                 <div className="mb-8"><h2 className="text-4xl font-black italic uppercase tracking-tighter">New Market</h2><p className="text-blue-600 font-bold uppercase text-xs tracking-widest italic mt-1">Deploy terminal signal</p></div>
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    <div><label className="block text-[10px] font-black uppercase text-gray-400 mb-2 ml-1 italic tracking-widest">Question</label><input required type="text" placeholder="Outcome question?" className="w-full bg-blue-50 border-2 border-blue-100 rounded-2xl p-4 font-bold text-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-600/10" value={question} onChange={(e) => setQuestion(e.target.value)} /></div>
-                    <div><label className="block text-[10px] font-black uppercase text-gray-400 mb-2 ml-1 italic tracking-widest">Context</label><textarea required rows={3} placeholder="Provide details..." className="w-full bg-blue-50 border-2 border-blue-100 rounded-2xl p-4 font-bold text-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-600/10 resize-none" value={description} onChange={(e) => setDescription(e.target.value)} /></div>
+                    <div><label className="block text-[10px] font-black uppercase text-gray-400 mb-2 ml-1 italic tracking-widest">Question (Required)</label><input required type="text" placeholder="Outcome question?" className="w-full bg-blue-50 border-2 border-blue-100 rounded-2xl p-4 font-bold text-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-600/10" value={question} onChange={(e) => setQuestion(e.target.value)} /></div>
+                    <div><label className="block text-[10px] font-black uppercase text-gray-400 mb-2 ml-1 italic tracking-widest">Context (Optional)</label><textarea rows={2} placeholder="Provide details..." className="w-full bg-blue-50 border-2 border-blue-100 rounded-2xl p-4 font-bold text-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-600/10 resize-none" value={description} onChange={(e) => setDescription(e.target.value)} /></div>
+                    <div><label className="block text-[10px] font-black uppercase text-gray-400 mb-2 ml-1 italic tracking-widest">Solana CA (Optional - Track Market Cap)</label><input type="text" placeholder="Solana Contract Address" className="w-full bg-blue-50 border-2 border-blue-100 rounded-2xl p-4 font-bold text-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-600/10" value={contractAddress} onChange={(e) => setContractAddress(e.target.value)} /></div>
                     <div><label className="block text-[10px] font-black uppercase text-gray-400 mb-2 ml-1 italic tracking-widest">Proof Asset</label><div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-blue-100 rounded-2xl p-6 flex flex-col items-center justify-center bg-blue-50/50 hover:bg-blue-100 transition-all cursor-pointer relative min-h-[120px]">{preview ? <img src={preview} className="absolute inset-0 w-full h-full object-cover rounded-2xl opacity-80" /> : <Plus size={32} className="text-blue-300" />}<input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} /></div></div>
                     <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl text-xl hover:bg-blue-700 transition-all disabled:opacity-50 uppercase italic tracking-tighter shadow-lg">{loading ? <Loader2 className="animate-spin mx-auto" /> : "Initiate Terminal"}</button>
                 </form>
@@ -399,7 +366,12 @@ const CreateMarketModal: React.FC<{ onClose: () => void; onCreated: () => void }
     );
 };
 
-const PredictionMerket: React.FC = () => {
+interface PredictionMarketProps {
+  initialCreateData?: { question: string, description: string } | null;
+  onClearInitialData?: () => void;
+}
+
+const PredictionMarket: React.FC<PredictionMarketProps> = ({ initialCreateData, onClearInitialData }) => {
   const [merkets, setMerkets] = useState<MerketType[]>([]);
   const [selectedMerket, setSelectedMerket] = useState<MerketType | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -425,11 +397,18 @@ const PredictionMerket: React.FC = () => {
     });
   }, []);
 
+  useEffect(() => {
+    if (initialCreateData) {
+      setIsCreateOpen(true);
+    }
+  }, [initialCreateData]);
+
   const handleVote = async (id: string, option: 'YES' | 'NO') => {
     setActionLoading(true); await voteMerket(id, option);
     const updated = await getMerkets();
     setMerkets(updated);
-    setSelectedMerket(updated.find(m => m.id === id)!);
+    const current = updated.find(m => m.id === id);
+    if (current) setSelectedMerket(current);
     setActionLoading(false);
   };
 
@@ -446,6 +425,11 @@ const PredictionMerket: React.FC = () => {
         default: return data;
     }
   }, [merkets, activeFilter]);
+
+  const handleCloseCreate = () => {
+    setIsCreateOpen(false);
+    onClearInitialData?.();
+  };
 
   return (
     <section id="merkets">
@@ -474,8 +458,15 @@ const PredictionMerket: React.FC = () => {
         )}
       </div>
       {selectedMerket && <MerketDetailModal merket={selectedMerket} onClose={() => { setSelectedMerket(null); window.location.hash = 'live-market'; }} onVote={handleVote} isVoting={actionLoading} />}
-      {isCreateOpen && <CreateMarketModal onClose={() => setIsCreateOpen(false)} onCreated={refreshMarkets} />}
+      {isCreateOpen && (
+        <CreateMarketModal 
+          onClose={handleCloseCreate} 
+          onCreated={refreshMarkets} 
+          initialQuestion={initialCreateData?.question}
+          initialDescription={initialCreateData?.description}
+        />
+      )}
     </section>
   );
 };
-export default PredictionMerket;
+export default PredictionMarket;
