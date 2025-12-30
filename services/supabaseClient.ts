@@ -1,20 +1,15 @@
-
 import { createClient } from '@supabase/supabase-js';
 
-// Próbáljuk elérni a változókat többféleképpen (Vite, Node, vagy globális process)
-const getEnv = (key: string) => {
-  // @ts-ignore
-  const env = (import.meta as any).env?.[key] || (process as any).env?.[key] || (window as any).process?.env?.[key];
-  return env || '';
-};
+// A "valós" működéshez (hogy ne Demo módban legyen) a Vercel-en vagy a .env fájlban
+// be kell állítanod a következő környezeti változókat a Supabase adataiddal.
+// Ha nincs beállítva környezeti változó, akkor üres marad, és a Demo mód fut.
+// 
+// Vercel beállítás: Settings -> Environment Variables
+// VITE_SUPABASE_URL = https://your-project.supabase.co
+// VITE_SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5c...
 
-const SUPABASE_URL = getEnv('VITE_SUPABASE_URL');
-const SUPABASE_ANON_KEY = getEnv('VITE_SUPABASE_ANON_KEY');
-
-// Debug log a fejlesztői konzolhoz (csak ha nincs beállítva)
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.warn("Supabase configuration missing! The app is running in LOCAL DEMO MODE. Please check your environment variables: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
-}
+const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || ''; 
+const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
 
 export const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY) 
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
