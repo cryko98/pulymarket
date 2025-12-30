@@ -41,7 +41,7 @@ const saveUserVote = (merketId: string, option: 'YES' | 'NO') => {
     votes[merketId] = option;
     localStorage.setItem(USER_VOTES_KEY, JSON.stringify(votes));
   } catch (e) {
-    console.error("Failed to save vote locally", e);
+    console.error("Local save error", e);
   }
 };
 
@@ -53,9 +53,7 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
         .select('*')
         .order('created_at', { ascending: false });
       
-      if (error) {
-        console.error("Supabase Fetch Error:", error.message);
-      } else if (data) {
+      if (!error && data) {
         return data.map((item: any) => ({
           id: item.id.toString(),
           question: item.question || 'Unknown',
@@ -67,11 +65,8 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
           contractAddress: item.contract_address || ''
         }));
       }
-    } catch (err) {
-      console.error("Supabase Connection Catch:", err);
-    }
+    } catch (err) {}
   }
-
   const stored = localStorage.getItem(STORAGE_KEY);
   return stored ? JSON.parse(stored) : [];
 };
@@ -80,13 +75,14 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void
   const previousVote = getUserVote(id);
   if (previousVote === option) return;
 
+  // 1. Mentés local-ba azonnal (Optimista feedback)
+  saveUserVote(id, option);
+
   const numericId = parseInt(id);
   const isSupabaseId = !isNaN(numericId) && !id.startsWith('local-');
 
   if (isSupabaseConfigured() && supabase && isSupabaseId) {
     try {
-      console.log(`RPC call starting: ID=${numericId}, Vote=${option}, Previous=${previousVote}`);
-      
       const { error } = await supabase.rpc('increment_vote', { 
           market_id: numericId, 
           vote_type: option,
@@ -94,24 +90,15 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void
       });
       
       if (error) {
-        console.error("RPC Error Details:", error);
-        alert(`Supabase Voting Error: ${error.message}\n\nMake sure the SQL function 'increment_vote' is created with 'SECURITY DEFINER'.`);
-        throw error;
+        console.error("Vote error:", error.message);
+        // Ha hiba van, akkor is továbbengedjük a lokális mentést, de logolunk
       }
-      
-      console.log("RPC Success! Vote recorded.");
-      saveUserVote(id, option);
-      
-      // Adjunk egy kis időt az adatbázisnak a frissítésre
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return;
     } catch (err) {
-      console.error("Voting Catch Block:", err);
+      console.error("Voting catch:", err);
     }
   }
   
-  // Local/Optimistic Update ha a Supabase nem érhető el
-  saveUserVote(id, option);
+  // Lokális adatok frissítése (ha nem Supabase vagy fallback)
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored) {
     const merkets: PredictionMerket[] = JSON.parse(stored);
@@ -140,20 +127,11 @@ export const createMarket = async (market: Omit<PredictionMerket, 'id' | 'yesVot
             no_votes: 0
           };
           if (market.contractAddress) payload.contract_address = market.contractAddress;
-          
-          const { error } = await supabase.from('markets').insert([payload]);
-          if (!error) return;
-          console.error("Supabase Insert Error:", error.message);
+          await supabase.from('markets').insert([payload]);
         } catch (err) {}
     }
-
     const newMarket: PredictionMerket = {
-        ...market,
-        id: `local-${crypto.randomUUID()}`,
-        yesVotes: 0,
-        noVotes: 0,
-        createdAt: Date.now(),
-        image: market.image || BRAND_LOGO
+        ...market, id: `local-${crypto.randomUUID()}`, yesVotes: 0, noVotes: 0, createdAt: Date.now(), image: market.image || BRAND_LOGO
     };
     const stored = localStorage.getItem(STORAGE_KEY);
     const currentMarkets: PredictionMerket[] = stored ? JSON.parse(stored) : [];
@@ -164,33 +142,20 @@ export const getComments = async (marketId: string): Promise<MerketComment[]> =>
   const numericId = parseInt(marketId);
   if (isSupabaseConfigured() && supabase && !isNaN(numericId) && !marketId.startsWith('local-')) {
     try {
-      const { data, error } = await supabase
-        .from('comments')
-        .select('*')
-        .eq('market_id', numericId)
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('comments').select('*').eq('market_id', numericId).order('created_at', { ascending: false });
       if (!error && data) return data;
     } catch (err) {}
   }
   const stored = localStorage.getItem(COMMENTS_KEY);
   const allComments: MerketComment[] = stored ? JSON.parse(stored) : [];
-  return allComments.filter(c => c.market_id === marketId).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  return allComments.filter(c => c.market_id === marketId);
 };
 
 export const postComment = async (marketId: string, username: string, content: string): Promise<void> => {
   const numericId = parseInt(marketId);
   if (isSupabaseConfigured() && supabase && !isNaN(numericId) && !marketId.startsWith('local-')) {
     try {
-      const { error } = await supabase.from('comments').insert([{ 
-        market_id: numericId, 
-        username, 
-        content 
-      }]);
-      if (!error) return;
+      await supabase.from('comments').insert([{ market_id: numericId, username, content }]);
     } catch (err) {}
   }
-  const stored = localStorage.getItem(COMMENTS_KEY);
-  const allComments = stored ? JSON.parse(stored) : [];
-  const newComment = { id: crypto.randomUUID(), market_id: marketId, username, content, created_at: new Date().toISOString() };
-  localStorage.setItem(COMMENTS_KEY, JSON.stringify([newComment, ...allComments]));
 };

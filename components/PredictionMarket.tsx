@@ -3,100 +3,51 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { getMerkets, voteMerket, getUserVote, createMarket, getComments, postComment, fetchMarketCap } from '../services/marketService';
 import { isSupabaseConfigured } from '../services/supabaseClient';
 import { PredictionMerket as MerketType, MerketComment } from '../types';
-import { Loader2, X, Plus, MessageSquare, Star, ChevronUp, ChevronDown, Send, TrendingUp, BarChart, Zap, Wifi, WifiOff } from 'lucide-react';
+import { Loader2, X, Plus, MessageSquare, Star, ChevronUp, ChevronDown, Send, TrendingUp, BarChart, Zap, WifiOff } from 'lucide-react';
 
 const BRAND_LOGO = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
 
 const slugify = (text: string) => text.toLowerCase().replace(/[^\w ]+/g, '').replace(/ +/g, '-').substring(0, 50);
 
-const XIcon = ({ size = 16, className = "" }) => (
-  <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill="currentColor">
-    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-  </svg>
-);
-
 const TrendGraph: React.FC<{ yesProb: number; marketId: string; height?: number }> = ({ yesProb, marketId, height = 200 }) => {
   const noProb = 100 - yesProb;
-  
   const points = useMemo(() => {
-    const yesP = [];
-    const noP = [];
-    const segments = 60;
-    const width = 600;
-    
+    const yesP = []; const noP = []; const segments = 40; const width = 600;
     let seed = marketId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const seededRandom = () => {
-      seed = (seed * 9301 + 49297) % 233280;
-      return seed / 233280;
-    };
-
-    const minY = 0;
-    const maxY = 100;
-    const range = maxY - minY;
-
-    const mapValueToY = (val: number) => {
-      const normalized = (val - minY) / range;
-      return height - (normalized * height);
-    };
-
+    const seededRandom = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    const mapValueToY = (val: number) => height - ((val / 100) * height);
     for (let i = 0; i <= segments; i++) {
       const x = (i / segments) * width;
       const progress = i / segments;
-      const startValueYes = 50;
-      const baseYes = startValueYes + (yesProb - startValueYes) * progress;
-      const baseNo = (100 - startValueYes) + (noProb - (100 - startValueYes)) * progress;
-      const noiseIntensity = (1 - progress) * 12; 
-      const currentYes = i === segments ? yesProb : baseYes + (seededRandom() - 0.5) * noiseIntensity;
-      const currentNo = i === segments ? noProb : baseNo + (seededRandom() - 0.5) * noiseIntensity;
+      const currentYes = i === segments ? yesProb : 50 + (yesProb - 50) * progress + (seededRandom() - 0.5) * (1 - progress) * 15;
+      const currentNo = i === segments ? noProb : 50 + (noProb - 50) * progress + (seededRandom() - 0.5) * (1 - progress) * 15;
       yesP.push(`${x},${mapValueToY(currentYes)}`);
       noP.push(`${x},${mapValueToY(currentNo)}`);
     }
     return { yes: yesP.join(' '), no: noP.join(' '), mapValueToY };
   }, [yesProb, height, marketId]);
 
-  const labels = [100, 80, 60, 40, 20, 0];
-
   return (
-    <div className="w-full relative flex bg-[#0d1117] rounded-xl border border-white/5 my-4 md:my-6 overflow-hidden shadow-2xl group/graph" style={{ height: `${height}px` }}>
-      <div className="flex-1 relative border-r border-white/10 overflow-hidden">
-        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-10">
-          {labels.map((_, i) => (
-            <div key={i} className="w-full border-t border-white/20"></div>
-          ))}
-        </div>
+    <div className="w-full relative flex bg-[#0d1117] rounded-xl border border-white/5 my-4 overflow-hidden" style={{ height: `${height}px` }}>
+      <div className="flex-1 relative border-r border-white/10">
         <svg className="w-full h-full" viewBox={`0 0 600 ${height}`} preserveAspectRatio="none">
-          <polyline fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={points.no} className="transition-all duration-700" />
-          <polyline fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={points.yes} className="transition-all duration-700" />
-          <circle cx="600" cy={points.mapValueToY(yesProb)} r="6" fill="#22c55e" className="transition-all duration-700 shadow-lg" />
-          <circle cx="600" cy={points.mapValueToY(noProb)} r="6" fill="#ef4444" className="transition-all duration-700 shadow-lg" />
+          <polyline fill="none" stroke="#ef4444" strokeWidth="2" points={points.no} className="opacity-40" />
+          <polyline fill="none" stroke="#22c55e" strokeWidth="3" points={points.yes} />
         </svg>
-        <div className="absolute bottom-2 left-3 bg-black/60 px-2 py-0.5 rounded-md text-[8px] md:text-[9px] font-black text-white/40 italic uppercase tracking-[0.2em] border border-white/5">
-          POLY-MARKET.SITE
-        </div>
-      </div>
-      <div className="w-10 md:w-14 flex flex-col justify-between items-center py-0.5 opacity-40 text-[8px] md:text-[10px] font-black text-white bg-black/40">
-        {labels.map((val) => (
-          <div key={val} className="flex-1 flex items-center justify-center border-b border-white/5 w-full last:border-b-0 italic">{val}%</div>
-        ))}
       </div>
     </div>
   );
 };
 
 const ChanceIndicator: React.FC<{ percentage: number }> = ({ percentage }) => {
-  const radius = 26;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percentage / 100) * circumference;
+  const radius = 24; const circumference = 2 * Math.PI * radius; const offset = circumference - (percentage / 100) * circumference;
   return (
-    <div className="relative flex items-center justify-center w-20 h-20 md:w-24 md:h-24">
+    <div className="relative flex items-center justify-center w-16 h-16">
       <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 64 64">
-        <circle cx="32" cy="32" r={radius} stroke="currentColor" strokeWidth="3.5" fill="transparent" className="text-white/5" />
-        <circle cx="32" cy="32" r={radius} stroke="currentColor" strokeWidth="3.5" fill="transparent" strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" className="text-blue-500 transition-all duration-1000" />
+        <circle cx="32" cy="32" r={radius} stroke="currentColor" strokeWidth="3" fill="transparent" className="text-white/5" />
+        <circle cx="32" cy="32" r={radius} stroke="currentColor" strokeWidth="4" fill="transparent" strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" className="text-blue-500 transition-all duration-700" />
       </svg>
-      <div className="absolute flex flex-col items-center justify-center text-center pointer-events-none translate-y-0.5">
-        <span className="text-xl md:text-2xl font-black leading-none text-white tracking-tighter">{percentage}%</span>
-        <span className="text-[6px] md:text-[7px] font-black uppercase text-white/30 tracking-[0.2em] mt-0.5 md:mt-1">Chance</span>
-      </div>
+      <span className="absolute text-xs font-black text-white">{percentage}%</span>
     </div>
   );
 };
@@ -105,280 +56,244 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
   const [comments, setComments] = useState<MerketComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [username, setUsername] = useState(localStorage.getItem('poly_username') || '');
-  const [mcap, setMcap] = useState<string | null>(null);
-  const currentVote = getUserVote(merket.id);
-  const [selectedOption, setSelectedOption] = useState<'YES' | 'NO' | null>(currentVote);
+  const [selectedOption, setSelectedOption] = useState<'YES' | 'NO' | null>(getUserVote(merket.id));
   const totalVotes = merket.yesVotes + merket.noVotes;
   const yesProb = totalVotes === 0 ? 50 : Math.round((merket.yesVotes / totalVotes) * 100);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (merket.contractAddress) fetchMarketCap(merket.contractAddress).then(setMcap);
-  }, [merket.contractAddress]);
-
-  useEffect(() => {
-    const fetchComments = async () => {
-      const data = await getComments(merket.id);
-      setComments(data);
-    };
-    fetchComments();
-    const interval = setInterval(fetchComments, 4000);
-    return () => clearInterval(interval);
+    getComments(merket.id).then(setComments);
   }, [merket.id]);
 
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [comments]);
-
   const handlePostComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newComment.trim() || !username.trim()) return;
+    e.preventDefault(); if (!newComment.trim() || !username.trim()) return;
     localStorage.setItem('poly_username', username);
     await postComment(merket.id, username, newComment);
     setNewComment('');
-    const updated = await getComments(merket.id);
-    setComments(updated);
-  };
-
-  const handleTweetAction = () => {
-    const slug = slugify(merket.question);
-    const domain = window.location.origin;
-    const shareLink = `${domain}/${slug}`;
-    const tweetText = `Terminal Analysis: "${merket.question}"\n\nSentiment: ${yesProb}% Bullish\n\nVote on-chain:\n${shareLink}\n\n$Polymarket #Solana`;
-    window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`, '_blank');
+    getComments(merket.id).then(setComments);
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-md p-2 md:p-4">
-      <div className="bg-[#0f172a] w-full max-w-5xl h-[95vh] md:h-[90vh] rounded-[1.5rem] md:rounded-[2.5rem] border border-white/10 overflow-hidden flex flex-col md:flex-row shadow-2xl text-white">
-        <button onClick={onClose} className="absolute top-4 right-4 md:top-6 md:right-6 z-10 p-2 bg-white/5 border border-white/10 rounded-full hover:scale-110 transition-transform"><X size={18} /></button>
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <div className="p-5 md:p-12 overflow-y-auto custom-scroll flex-1">
-            <div className="flex items-center gap-4 md:gap-6 mb-6 md:mb-8">
-              <div className="w-12 h-12 md:w-16 md:h-16 rounded-xl bg-blue-600 p-0.5 shrink-0 border border-white/20 shadow-lg">
-                <img src={merket.image || BRAND_LOGO} className="w-full h-full object-cover rounded-lg" />
-              </div>
-              <h2 className="text-2xl md:text-5xl font-black uppercase italic tracking-tighter leading-none">{merket.question}</h2>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-md p-2">
+      <div className="bg-[#0f172a] w-full max-w-4xl h-[90vh] rounded-3xl border border-white/10 overflow-hidden flex flex-col md:flex-row shadow-2xl">
+        <button onClick={onClose} className="absolute top-4 right-4 z-10 p-2 bg-white/10 rounded-full"><X size={18} /></button>
+        <div className="flex-1 overflow-y-auto custom-scroll p-6 md:p-10">
+          <div className="flex items-center gap-4 mb-8">
+            <img src={merket.image || BRAND_LOGO} className="w-16 h-16 rounded-xl object-cover" />
+            <h2 className="text-2xl md:text-4xl font-black uppercase italic italic">{merket.question}</h2>
+          </div>
+          <div className="p-6 bg-white/5 rounded-3xl border border-white/5 mb-8">
+            <div className="flex justify-between items-end mb-4 font-black uppercase">
+              <span className="text-green-500 text-3xl">{yesProb}% YES</span>
+              <span className="text-red-500 text-3xl">{100-yesProb}% NO</span>
             </div>
-            {mcap && (
-              <div className="mb-4 md:mb-6 flex items-center gap-3 bg-blue-500/10 border border-blue-500/20 px-4 py-2 md:px-6 md:py-3 rounded-xl md:rounded-2xl w-fit">
-                <BarChart size={16} className="text-blue-400" />
-                <span className="text-blue-400 font-black uppercase italic tracking-widest text-[10px] md:text-sm">MCAP: ${mcap}</span>
-              </div>
-            )}
-            <div className="mb-6 md:mb-8 p-4 md:p-8 bg-white/5 rounded-[1.5rem] md:rounded-[2rem] border border-white/5 relative">
-               <div className="flex justify-between items-end mb-4 md:mb-6 font-black italic uppercase tracking-tighter">
-                  <div className="flex flex-col"><span className="text-green-400 text-[8px] md:text-[10px] tracking-widest mb-1 opacity-60 italic uppercase font-black">Bullish Signal</span><span className="text-2xl md:text-4xl text-green-500">{yesProb}% YES</span></div>
-                  <div className="flex flex-col items-end"><span className="text-red-400 text-[8px] md:text-[10px] tracking-widest mb-1 opacity-60 italic uppercase font-black">Bearish Signal</span><span className="text-2xl md:text-4xl text-red-500">{100-yesProb}% NO</span></div>
-               </div>
-               <div className="h-2.5 md:h-4 bg-white/5 rounded-full overflow-hidden flex mb-4 md:mb-6 border border-white/5">
-                  <div className="h-full bg-green-600 transition-all duration-1000" style={{ width: `${yesProb}%` }} />
-                  <div className="h-full bg-red-600 transition-all duration-1000" style={{ width: `${100-yesProb}%` }} />
-               </div>
-               <TrendGraph yesProb={yesProb} marketId={merket.id} height={180} />
+            <div className="h-3 bg-white/5 rounded-full overflow-hidden flex mb-4">
+              <div className="h-full bg-green-600 transition-all duration-1000" style={{ width: `${yesProb}%` }} />
+              <div className="h-full bg-red-600 transition-all duration-1000" style={{ width: `${100-yesProb}%` }} />
             </div>
-            {merket.description && <p className="text-sm md:text-lg font-bold opacity-60 italic mb-8 md:mb-12 px-2 leading-relaxed">"{merket.description}"</p>}
-            <div className="mt-4 md:mt-8 border-t border-white/10 pt-6 md:pt-8">
-              <h4 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.4em] text-white/30 mb-4 md:mb-6 flex items-center gap-2 italic"><MessageSquare size={14} /> Global Feed</h4>
-              <div ref={scrollRef} className="space-y-3 md:space-y-4 max-h-48 md:max-h-64 overflow-y-auto custom-scroll pr-2 md:pr-4 mb-4 md:mb-6">
-                {comments.length === 0 ? <div className="text-center py-6 md:py-8 opacity-20 italic text-xs md:text-sm">Awaiting terminal signals...</div> :
-                  comments.map((c) => (
-                    <div key={c.id} className="bg-white/[0.03] rounded-xl md:rounded-2xl p-3 md:p-4 border border-white/5">
-                      <div className="flex justify-between items-center mb-1"><span className="text-[8px] md:text-[10px] font-black text-blue-400 uppercase tracking-widest">{c.username}</span><span className="text-[7px] md:text-[9px] text-white/20 font-mono italic">{new Date(c.created_at).toLocaleTimeString()}</span></div>
-                      <p className="text-[11px] md:text-sm font-bold text-white/70">{c.content}</p>
-                    </div>
-                  ))
-                }
-              </div>
-              <form onSubmit={handlePostComment} className="flex gap-2 bg-black/40 p-1.5 md:p-2 rounded-xl md:rounded-2xl border border-white/10 focus-within:border-blue-500/50 transition-colors">
-                <input required type="text" placeholder="Alias" className="w-16 md:w-24 bg-white/5 border border-white/10 rounded-lg md:rounded-xl px-2 md:px-3 py-1.5 md:py-2 text-[9px] md:text-[10px] font-black text-blue-400 placeholder-white/20 focus:outline-none uppercase" value={username} onChange={(e) => setUsername(e.target.value)} />
-                <input required type="text" placeholder="Type..." className="flex-1 bg-transparent border-none px-2 py-1.5 md:py-2 text-[11px] md:text-sm font-bold text-white placeholder-white/10 focus:outline-none" value={newComment} onChange={(e) => setNewComment(e.target.value)} />
-                <button type="submit" className="p-2 md:p-3 bg-blue-600 text-white rounded-lg md:rounded-xl hover:bg-blue-500 transition-colors shadow-lg shrink-0"><Send size={14} /></button>
-              </form>
+            <TrendGraph yesProb={yesProb} marketId={merket.id} height={150} />
+          </div>
+          <p className="text-white/60 font-bold mb-8 italic">"{merket.description}"</p>
+          <div className="border-t border-white/10 pt-8">
+            <h4 className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30 mb-4">Live Signals</h4>
+            <div className="space-y-3 max-h-40 overflow-y-auto mb-4">
+              {comments.map(c => (
+                <div key={c.id} className="bg-white/5 p-3 rounded-xl border border-white/5">
+                  <span className="text-[10px] font-black text-blue-400 uppercase">{c.username}</span>
+                  <p className="text-sm font-bold text-white/70">{c.content}</p>
+                </div>
+              ))}
             </div>
+            <form onSubmit={handlePostComment} className="flex gap-2 bg-black/40 p-2 rounded-xl border border-white/10">
+              <input required type="text" placeholder="Alias" className="w-20 bg-white/5 rounded-lg px-2 py-1 text-xs font-black text-blue-400 uppercase focus:outline-none" value={username} onChange={e => setUsername(e.target.value)} />
+              <input required type="text" placeholder="Type..." className="flex-1 bg-transparent px-2 text-sm font-bold text-white focus:outline-none" value={newComment} onChange={e => setNewComment(e.target.value)} />
+              <button type="submit" className="p-2 bg-blue-600 rounded-lg text-white"><Send size={14} /></button>
+            </form>
           </div>
         </div>
-        <div className="w-full md:w-80 bg-white/[0.01] p-6 md:p-12 flex flex-row md:flex-col justify-center gap-3 md:gap-4 border-t md:border-t-0 md:border-l border-white/10 shrink-0">
-          <div className="flex-1 md:flex-none flex flex-col md:flex-col gap-2">
-            <button onClick={() => setSelectedOption('YES')} className={`w-full py-3 md:py-5 rounded-xl md:rounded-2xl font-black text-sm md:text-lg border transition-all uppercase italic tracking-tighter ${selectedOption === 'YES' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-transparent border-white/5 hover:border-white/20 text-white/40'}`}>Yes Signal</button>
-            <button onClick={() => setSelectedOption('NO')} className={`w-full py-3 md:py-5 rounded-xl md:rounded-2xl font-black text-sm md:text-lg border transition-all uppercase italic tracking-tighter ${selectedOption === 'NO' ? 'bg-rose-500/20 border-rose-500 text-rose-400' : 'bg-transparent border-white/5 hover:border-white/20 text-white/40'}`}>No Signal</button>
-          </div>
-          <div className="flex-1 md:flex-none flex flex-col md:flex-col gap-2">
-            <button onClick={() => onVote(merket.id, selectedOption!)} disabled={!selectedOption || isVoting} className="w-full h-full md:h-auto bg-blue-600 text-white font-black py-3 md:py-5 rounded-xl md:rounded-2xl hover:bg-blue-500 transition-all disabled:opacity-20 shadow-xl uppercase italic tracking-tighter text-xs md:text-lg">{isVoting ? <Loader2 className="animate-spin mx-auto" size={16} /> : "Submit Vote"}</button>
-            <button onClick={handleTweetAction} className="hidden md:flex w-full py-4 bg-white/5 border border-white/10 rounded-2xl items-center justify-center gap-2 text-[10px] font-black uppercase italic hover:bg-white/10 transition-all text-white/60"><XIcon size={14} /> Share Analysis</button>
-          </div>
+        <div className="w-full md:w-72 bg-white/[0.02] p-8 border-t md:border-t-0 md:border-l border-white/10 flex flex-col gap-3">
+          <button onClick={() => setSelectedOption('YES')} className={`w-full py-4 rounded-xl font-black text-lg border transition-all uppercase ${selectedOption === 'YES' ? 'bg-green-500/20 border-green-500 text-green-400' : 'border-white/5 text-white/40'}`}>Yes Signal</button>
+          <button onClick={() => setSelectedOption('NO')} className={`w-full py-4 rounded-xl font-black text-lg border transition-all uppercase ${selectedOption === 'NO' ? 'bg-red-500/20 border-red-500 text-red-400' : 'border-white/5 text-white/40'}`}>No Signal</button>
+          <button onClick={() => onVote(merket.id, selectedOption!)} disabled={!selectedOption || isVoting} className="w-full bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-500 transition-all disabled:opacity-20 uppercase mt-auto">{isVoting ? <Loader2 className="animate-spin mx-auto" /> : "Submit Vote"}</button>
         </div>
       </div>
     </div>
   );
 };
 
-const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void }> = ({ merket, onOpen }) => {
+const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void; onDirectVote: (id: string, option: 'YES' | 'NO') => void }> = ({ merket, onOpen, onDirectVote }) => {
   const [mcap, setMcap] = useState<string | null>(null);
   const totalVotes = merket.yesVotes + merket.noVotes;
   const yesProb = totalVotes === 0 ? 50 : Math.round((merket.yesVotes / totalVotes) * 100);
-  useEffect(() => {
-    if (merket.contractAddress) fetchMarketCap(merket.contractAddress).then(setMcap);
-  }, [merket.contractAddress]);
+  const currentVote = getUserVote(merket.id);
+
+  useEffect(() => { if (merket.contractAddress) fetchMarketCap(merket.contractAddress).then(setMcap); }, [merket.contractAddress]);
+
   return (
-    <div className="bg-[#1e293b] border border-white/5 rounded-[1.5rem] md:rounded-3xl p-5 md:p-6 flex flex-col h-full hover:bg-[#253247] transition-all cursor-pointer group shadow-xl relative overflow-hidden" onClick={() => onOpen(merket)}>
-      <div className="flex justify-between items-start gap-4 mb-3 md:mb-4 min-h-[56px] md:min-h-[64px]">
+    <div className="bg-[#1e293b] border border-white/5 rounded-3xl p-6 flex flex-col h-full hover:border-blue-500/30 transition-all shadow-xl group cursor-pointer" onClick={() => onOpen(merket)}>
+      <div className="flex justify-between items-start gap-4 mb-4">
         <div className="flex-1">
-          <h3 className="text-base md:text-xl font-black text-white leading-tight group-hover:text-blue-400 transition-colors line-clamp-2 uppercase italic tracking-tighter mb-1.5 md:mb-2">{merket.question}</h3>
-          {mcap && <div className="flex items-center gap-1.5 text-blue-400 font-mono text-[8px] md:text-[9px] uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded w-fit"><BarChart size={10} /> MCAP: ${mcap}</div>}
+          <h3 className="text-xl font-black text-white leading-tight uppercase italic group-hover:text-blue-400 transition-colors line-clamp-2">{merket.question}</h3>
+          {mcap && <div className="text-[10px] text-blue-400 font-mono mt-2 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded w-fit">MCAP: ${mcap}</div>}
         </div>
-        <div className="shrink-0"><img src={merket.image || BRAND_LOGO} className="w-9 h-9 md:w-10 md:h-10 rounded-lg md:rounded-xl border border-white/10 object-cover shadow-lg" /></div>
+        <img src={merket.image || BRAND_LOGO} className="w-12 h-12 rounded-xl border border-white/10 object-cover" />
       </div>
-      <div className="flex items-center justify-between mb-3 md:mb-4">
-        <div className="flex flex-col gap-1.5 md:gap-2">
-          <div className="flex items-center gap-2 text-[9px] md:text-[10px] font-black text-green-400 uppercase italic tracking-widest"><span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span><span>YES: {yesProb}%</span></div>
-          <div className="flex items-center gap-2 text-[9px] md:text-[10px] font-black text-red-400 uppercase italic tracking-widest"><span className="w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span><span>NO: {100-yesProb}%</span></div>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col gap-2">
+          <div className="text-[10px] font-black text-green-400 uppercase tracking-widest flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-green-400"></span> YES: {yesProb}%</div>
+          <div className="text-[10px] font-black text-red-400 uppercase tracking-widest flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-red-400"></span> NO: {100-yesProb}%</div>
         </div>
-        <div className="shrink-0 scale-75 md:scale-100"><ChanceIndicator percentage={yesProb} /></div>
+        <ChanceIndicator percentage={yesProb} />
       </div>
-      <TrendGraph yesProb={yesProb} marketId={merket.id} height={80} />
-      <div className="grid grid-cols-2 gap-2 md:gap-3 mb-4 md:mb-6 mt-2">
-        <button onClick={(e) => { e.stopPropagation(); onOpen(merket); }} className="flex items-center justify-center gap-1.5 md:gap-2 bg-[#2d4a41]/40 hover:bg-[#345b4e]/60 text-[#4ade80] border border-[#3e6b5c] rounded-xl md:rounded-2xl py-2 md:py-3 px-2 font-black text-[9px] md:text-[10px] uppercase italic transition-all">Yes <ChevronUp size={12} /></button>
-        <button onClick={(e) => { e.stopPropagation(); onOpen(merket); }} className="flex items-center justify-center gap-1.5 md:gap-2 bg-[#4a3434]/40 hover:bg-[#5b3e3e]/60 text-[#fb7185] border border-[#6b3e3e] rounded-xl md:rounded-2xl py-2 md:py-3 px-2 font-black text-[9px] md:text-[10px] uppercase italic transition-all">No <ChevronDown size={12} /></button>
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <button 
+          onClick={(e) => { e.stopPropagation(); onDirectVote(merket.id, 'YES'); }} 
+          className={`flex items-center justify-center gap-2 border rounded-2xl py-3 font-black text-xs uppercase italic transition-all ${currentVote === 'YES' ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-green-500/5 border-green-500/20 text-green-500/60 hover:bg-green-500/10'}`}
+        >Yes <ChevronUp size={14} /></button>
+        <button 
+          onClick={(e) => { e.stopPropagation(); onDirectVote(merket.id, 'NO'); }} 
+          className={`flex items-center justify-center gap-2 border rounded-2xl py-3 font-black text-xs uppercase italic transition-all ${currentVote === 'NO' ? 'bg-red-500/20 border-red-500 text-red-400' : 'bg-red-500/5 border-red-500/20 text-red-500/60 hover:bg-red-500/10'}`}
+        >No <ChevronDown size={14} /></button>
       </div>
-      <div className="mt-auto pt-3 md:pt-4 border-t border-white/5 flex justify-between items-center text-[8px] md:text-[10px] font-black uppercase italic text-white/20 tracking-[0.2em]">
-        <div className="flex items-center gap-3 md:gap-4"><span className="flex items-center gap-1.5"><Star size={10} className="text-yellow-500/50" /> {totalVotes} Votes</span></div>
-        <div className="flex items-center gap-2"><Plus size={12} className="opacity-40 group-hover:opacity-100 transition-opacity" /></div>
+      <div className="mt-auto pt-4 border-t border-white/5 text-[10px] font-black uppercase text-white/20 tracking-widest flex justify-between">
+        <span><Star size={10} className="inline mr-1" /> {totalVotes} Votes</span>
+        <Plus size={14} className="opacity-0 group-hover:opacity-100" />
       </div>
     </div>
   );
 };
 
-const CreateMarketModal: React.FC<{ onClose: () => void; onCreated: () => void; initialQuestion?: string; initialDescription?: string; }> = ({ onClose, onCreated, initialQuestion = '', initialDescription = '' }) => {
-    const [question, setQuestion] = useState(initialQuestion);
-    const [description, setDescription] = useState(initialDescription);
+// Props interface for CreateMarketModal to allow pre-filling
+const CreateMarketModal: React.FC<{ onClose: () => void; onCreated: () => void; initialData?: { question: string, description: string } | null }> = ({ onClose, onCreated, initialData }) => {
+    const [question, setQuestion] = useState(initialData?.question || '');
+    const [description, setDescription] = useState(initialData?.description || '');
     const [contractAddress, setContractAddress] = useState('');
     const [image, setImage] = useState('');
-    const [preview, setPreview] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => { const base64 = reader.result as string; setImage(base64); setPreview(base64); };
-            reader.readAsDataURL(file);
-        }
-    };
+    
+    // Update local state if initialData changes
+    useEffect(() => {
+      if (initialData) {
+        setQuestion(initialData.question);
+        setDescription(initialData.description);
+      }
+    }, [initialData]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault(); if (!question.trim()) return;
         setLoading(true);
-        try { 
-          await createMarket({ question, description, contractAddress, image: image || BRAND_LOGO }); 
-          onCreated(); 
-          onClose(); 
-        } catch (err) { } finally { setLoading(false); }
+        try { await createMarket({ question, description, contractAddress, image: image || BRAND_LOGO }); onCreated(); onClose(); } 
+        catch (err) { } finally { setLoading(false); }
     };
     return (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/95 backdrop-blur-xl p-3 md:p-4">
-            <div className="bg-white w-full max-w-xl rounded-[1.5rem] md:rounded-[2.5rem] p-6 md:p-10 relative overflow-hidden shadow-2xl text-blue-900 max-h-[90vh] overflow-y-auto custom-scroll">
-                <button onClick={onClose} className="absolute top-4 right-4 md:top-6 md:right-6 p-2 bg-blue-100 text-blue-900 rounded-full"><X size={18} /></button>
-                <div className="mb-6 md:mb-8 text-center md:text-left"><h2 className="text-2xl md:text-4xl font-black italic uppercase tracking-tighter">New Market</h2><p className="text-blue-600 font-bold uppercase text-[10px] tracking-widest italic mt-1">Deploy terminal signal</p></div>
-                <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
-                    <div><label className="block text-[8px] md:text-[10px] font-black uppercase text-gray-400 mb-1.5 md:mb-2 ml-1 italic tracking-widest">Question (Required)</label><input required type="text" placeholder="Outcome question?" className="w-full bg-blue-50 border-2 border-blue-100 rounded-xl md:rounded-2xl p-3 md:p-4 text-sm md:text-base font-bold text-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-600/10" value={question} onChange={(e) => setQuestion(e.target.value)} /></div>
-                    <div><label className="block text-[8px] md:text-[10px] font-black uppercase text-gray-400 mb-1.5 md:mb-2 ml-1 italic tracking-widest">Context (Optional)</label><textarea rows={2} placeholder="Provide details..." className="w-full bg-blue-50 border-2 border-blue-100 rounded-xl md:rounded-2xl p-3 md:p-4 text-sm md:text-base font-bold text-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-600/10 resize-none" value={description} onChange={(e) => setDescription(e.target.value)} /></div>
-                    <div><label className="block text-[8px] md:text-[10px] font-black uppercase text-gray-400 mb-1.5 md:mb-2 ml-1 italic tracking-widest">Solana CA (Optional)</label><input type="text" placeholder="Solana Contract Address" className="w-full bg-blue-50 border-2 border-blue-100 rounded-xl md:rounded-2xl p-3 md:p-4 text-sm md:text-base font-bold text-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-600/10" value={contractAddress} onChange={(e) => setContractAddress(e.target.value)} /></div>
-                    <div><label className="block text-[8px] md:text-[10px] font-black uppercase text-gray-400 mb-1.5 md:mb-2 ml-1 italic tracking-widest">Proof Asset</label><div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-blue-100 rounded-xl md:rounded-2xl p-4 md:p-6 flex flex-col items-center justify-center bg-blue-50/50 hover:bg-blue-100 transition-all cursor-pointer relative min-h-[100px] md:min-h-[120px]">{preview ? <img src={preview} className="absolute inset-0 w-full h-full object-cover rounded-xl md:rounded-2xl opacity-80" /> : <Plus size={24} className="text-blue-300" />}<input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} /></div></div>
-                    <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-black py-4 md:py-5 rounded-xl md:rounded-2xl text-base md:text-xl hover:bg-blue-700 transition-all disabled:opacity-50 uppercase italic tracking-tighter shadow-lg">{loading ? <Loader2 className="animate-spin mx-auto" size={20} /> : "Initiate Terminal"}</button>
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4">
+            <div className="bg-white w-full max-w-xl rounded-[2.5rem] p-8 relative shadow-2xl text-blue-900">
+                <button onClick={onClose} className="absolute top-6 right-6 p-2 bg-blue-100 rounded-full"><X size={18} /></button>
+                <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-6">New Market</h2>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <input required type="text" placeholder="Question?" className="w-full bg-blue-50 border-2 border-blue-100 rounded-2xl p-4 text-blue-900 font-bold focus:outline-none" value={question} onChange={e => setQuestion(e.target.value)} />
+                    <textarea placeholder="Details..." className="w-full bg-blue-50 border-2 border-blue-100 rounded-2xl p-4 text-blue-900 font-bold focus:outline-none h-24" value={description} onChange={e => setDescription(e.target.value)} />
+                    <input type="text" placeholder="Solana CA (Optional)" className="w-full bg-blue-50 border-2 border-blue-100 rounded-2xl p-4 text-blue-900 font-bold focus:outline-none" value={contractAddress} onChange={e => setContractAddress(e.target.value)} />
+                    <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-black py-4 rounded-2xl text-xl hover:bg-blue-700 disabled:opacity-50 uppercase shadow-lg">
+                      {loading ? <Loader2 className="animate-spin mx-auto" /> : "Initiate Terminal"}
+                    </button>
                 </form>
             </div>
         </div>
     );
 };
 
-const PredictionMarket: React.FC<{ initialCreateData?: { question: string, description: string } | null; onClearInitialData?: () => void; }> = ({ initialCreateData, onClearInitialData }) => {
+// Define props interface for PredictionMarket to fix the type error in index.tsx
+interface PredictionMarketProps {
+  initialCreateData?: { question: string, description: string } | null;
+  onClearInitialData?: () => void;
+}
+
+const PredictionMarket: React.FC<PredictionMarketProps> = ({ initialCreateData, onClearInitialData }) => {
   const [merkets, setMerkets] = useState<MerketType[]>([]);
   const [selectedMerket, setSelectedMerket] = useState<MerketType | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<'top' | 'new' | 'trending'>('top');
-  const [isOnline, setIsOnline] = useState(isSupabaseConfigured());
+  const [activeFilter, setActiveFilter] = useState<'top' | 'new'>('top');
 
-  const refreshMarkets = () => {
-      setLoading(true);
-      getMerkets().then(data => { setMerkets(data); setLoading(false); });
+  const refreshMarkets = async () => {
+    const data = await getMerkets();
+    setMerkets(data);
+    setLoading(false);
   };
 
-  useEffect(() => {
-    setIsOnline(isSupabaseConfigured());
-    getMerkets().then(data => {
-      setMerkets(data);
-      setLoading(false);
-      const hash = window.location.hash;
-      if (hash.includes(':')) {
-        const slug = hash.split(':')[1];
-        const target = data.find(m => slugify(m.question) === slug);
-        if (target) setSelectedMerket(target);
-      }
-    });
-  }, []);
+  useEffect(() => { refreshMarkets(); }, []);
 
-  useEffect(() => { if (initialCreateData) setIsCreateOpen(true); }, [initialCreateData]);
+  // Effect to handle external pre-fill requests
+  useEffect(() => {
+    if (initialCreateData) {
+      setIsCreateOpen(true);
+    }
+  }, [initialCreateData]);
+
+  const handleCloseCreate = () => {
+    setIsCreateOpen(false);
+    if (onClearInitialData) onClearInitialData();
+  };
 
   const handleVote = async (id: string, option: 'YES' | 'NO') => {
-    setActionLoading(true); await voteMerket(id, option);
-    const updated = await getMerkets();
-    setMerkets(updated);
-    const current = updated.find(m => m.id === id);
-    if (current) setSelectedMerket(current);
-    setActionLoading(false);
+    setActionLoading(true);
+    try {
+      // Optimista frissítés lokálisan a listában
+      setMerkets(prev => prev.map(m => {
+        if (m.id !== id) return m;
+        const prevVote = getUserVote(id);
+        let nY = m.yesVotes; let nN = m.noVotes;
+        if (prevVote === 'YES') nY = Math.max(0, nY - 1);
+        if (prevVote === 'NO') nN = Math.max(0, nN - 1);
+        if (option === 'YES') nY += 1;
+        if (option === 'NO') nN += 1;
+        return { ...m, yesVotes: nY, noVotes: nN };
+      }));
+      
+      await voteMerket(id, option);
+      // Szinkronizáció a szerverrel
+      await refreshMarkets();
+      
+      // Ha a modal nyitva van, frissítsük a benne lévő adatot is
+      if (selectedMerket && selectedMerket.id === id) {
+        const updated = await getMerkets();
+        const current = updated.find(m => m.id === id);
+        if (current) setSelectedMerket(current);
+      }
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const sortedMerkets = useMemo(() => {
-    const data = [...merkets];
-    switch (activeFilter) {
-        case 'top': return data.sort((a, b) => (b.yesVotes + b.noVotes) - (a.yesVotes + a.noVotes));
-        case 'new': return data.sort((a, b) => b.createdAt - a.createdAt);
-        case 'trending': return data.sort((a, b) => {
-            const aAct = (a.yesVotes + a.noVotes) * (Date.now() - a.createdAt < 86400000 ? 2 : 1);
-            const bAct = (b.yesVotes + b.noVotes) * (Date.now() - b.createdAt < 86400000 ? 2 : 1);
-            return bAct - aAct;
-        });
-        default: return data;
-    }
+    return [...merkets].sort((a, b) => activeFilter === 'top' ? (b.yesVotes + b.noVotes) - (a.yesVotes + a.noVotes) : b.createdAt - a.createdAt);
   }, [merkets, activeFilter]);
 
   return (
-    <section id="merkets" className="pb-10">
+    <section className="pb-20">
       <div className="container mx-auto px-4">
-        {/* Connection Status Indicator */}
-        {!isOnline && (
-            <div className="mb-6 bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl flex items-center gap-3 text-amber-500 text-xs font-black uppercase italic tracking-widest">
-                <WifiOff size={16} /> Supabase connection inactive. Running in local demo mode. Check VITE_ env variables.
+        <div className="flex flex-col md:flex-row items-center gap-4 mb-10 pb-6 border-b border-white/5">
+            <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 w-full md:w-auto">
+                <button onClick={() => setActiveFilter('top')} className={`flex-1 md:flex-none px-6 py-2 rounded-xl font-black text-xs uppercase italic transition-all ${activeFilter === 'top' ? 'bg-blue-600 text-white' : 'text-white/40'}`}>Top</button>
+                <button onClick={() => setActiveFilter('new')} className={`flex-1 md:flex-none px-6 py-2 rounded-xl font-black text-xs uppercase italic transition-all ${activeFilter === 'new' ? 'bg-blue-600 text-white' : 'text-white/40'}`}>New</button>
             </div>
-        )}
-        
-        <div className="flex flex-col md:flex-row items-center gap-4 mb-8 md:mb-12 pb-5 border-b border-white/5">
-            <div className="flex items-center bg-white/5 p-1 rounded-xl md:rounded-2xl border border-white/10 shadow-lg w-full md:w-auto overflow-x-auto no-scrollbar">
-                <button onClick={() => setActiveFilter('top')} className={`flex-1 md:flex-none px-4 md:px-5 py-2 md:py-2.5 rounded-lg md:rounded-xl font-black text-[10px] md:text-xs uppercase italic tracking-widest transition-all whitespace-nowrap ${activeFilter === 'top' ? 'bg-blue-600 text-white shadow-xl' : 'text-white/40 hover:text-white'}`}>Top</button>
-                <button onClick={() => setActiveFilter('new')} className={`flex-1 md:flex-none px-4 md:px-5 py-2 md:py-2.5 rounded-lg md:rounded-xl font-black text-[10px] md:text-xs uppercase italic tracking-widest transition-all whitespace-nowrap ${activeFilter === 'new' ? 'bg-blue-600 text-white shadow-xl' : 'text-white/40 hover:text-white'}`}>New</button>
-                <button onClick={() => setActiveFilter('trending')} className={`flex-1 md:flex-none px-4 md:px-5 py-2 md:py-2.5 rounded-lg md:rounded-xl font-black text-[10px] md:text-xs uppercase italic tracking-widest transition-all whitespace-nowrap ${activeFilter === 'trending' ? 'bg-blue-600 text-white shadow-xl' : 'text-white/40 hover:text-white'}`}>Trending</button>
-            </div>
-            <div className="w-full md:ml-auto md:w-auto">
-                <button onClick={() => setIsCreateOpen(true)} className="w-full md:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-xl md:rounded-2xl font-black text-xs uppercase italic tracking-tighter hover:bg-blue-600 transition-all shadow-2xl shadow-blue-500/20 border border-blue-400/20">
-                    <Plus size={16} /> New Market
-                </button>
-            </div>
+            <button onClick={() => setIsCreateOpen(true)} className="w-full md:w-auto md:ml-auto px-8 py-3 bg-blue-500 text-white rounded-2xl font-black text-xs uppercase italic hover:bg-blue-600 shadow-xl border border-blue-400/20 flex items-center justify-center gap-2"><Plus size={16} /> New Market</button>
         </div>
+        
         {loading ? (
-            <div className="flex flex-col items-center justify-center py-16 md:py-20 gap-4">
-                <Loader2 className="animate-spin text-blue-500 w-10 h-10 md:w-14 md:h-14" />
-                <span className="font-black text-[8px] md:text-[10px] text-white/30 uppercase tracking-[0.4em] md:tracking-[0.8em] italic">Syncing Terminal...</span>
+            <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <Loader2 className="animate-spin text-blue-500 w-12 h-12" />
+                <span className="font-black text-[10px] text-white/30 uppercase tracking-[0.5em] italic">Syncing Terminal...</span>
             </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-8">
-            {sortedMerkets.map(m => <MerketCard key={m.id} merket={m} onOpen={target => { setSelectedMerket(target); window.location.hash = `live-market:${slugify(target.question)}`; }} />)}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {sortedMerkets.map(m => <MerketCard key={m.id} merket={m} onOpen={setSelectedMerket} onDirectVote={handleVote} />)}
           </div>
         )}
       </div>
-      {selectedMerket && <MerketDetailModal merket={selectedMerket} onClose={() => { setSelectedMerket(null); window.location.hash = 'live-market'; }} onVote={handleVote} isVoting={actionLoading} />}
-      {isCreateOpen && <CreateMarketModal onClose={() => { setIsCreateOpen(false); onClearInitialData?.(); }} onCreated={refreshMarkets} initialQuestion={initialCreateData?.question} initialDescription={initialCreateData?.description} />}
+      {selectedMerket && <MerketDetailModal merket={selectedMerket} onClose={() => setSelectedMerket(null)} onVote={handleVote} isVoting={actionLoading} />}
+      {isCreateOpen && <CreateMarketModal onClose={handleCloseCreate} onCreated={refreshMarkets} initialData={initialCreateData} />}
     </section>
   );
 };
