@@ -3,11 +3,9 @@ import { PredictionMerket, MerketComment } from '../types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 /**
- * FIX FOR 'contract_address' ERROR:
- * Run this in Supabase SQL Editor:
- * ALTER TABLE markets ADD COLUMN IF NOT EXISTS contract_address TEXT;
- * ALTER TABLE markets ADD COLUMN IF NOT EXISTS image TEXT;
- * ALTER TABLE markets ADD COLUMN IF NOT EXISTS description TEXT;
+ * REQUIRED SUPABASE SETUP:
+ * 1. Table 'markets' with columns: id (int8), question (text), yes_votes (int8), no_votes (int8), contract_address (text), description (text), image (text).
+ * 2. RPC Function 'increment_vote' (Run the SQL provided in the instructions).
  */
 
 const STORAGE_KEY = 'poly_market_data_v3';
@@ -97,7 +95,6 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
 export const createMarket = async (market: Omit<PredictionMerket, 'id' | 'yesVotes' | 'noVotes' | 'createdAt'>): Promise<void> => {
     if (isSupabaseConfigured() && supabase) {
         try {
-          // Dinamikusan építjük fel a payloadot, hogy ha hiányzik egy oszlop, ne dőljön el minden
           const payload: any = {
             question: market.question,
             description: market.description || FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)],
@@ -106,29 +103,19 @@ export const createMarket = async (market: Omit<PredictionMerket, 'id' | 'yesVot
             no_votes: 0
           };
 
-          // Csak akkor adjuk hozzá, ha van értéke, így elkerülhető pár hiba
           if (market.contractAddress) {
             payload.contract_address = market.contractAddress;
           }
           
-          const { error, data } = await supabase.from('markets').insert([payload]).select();
+          const { error } = await supabase.from('markets').insert([payload]);
           
-          if (!error) {
-            console.log("SUCCESS: Market created in Supabase.", data);
-            return;
-          }
-          
+          if (!error) return;
           console.error("SUPABASE ERROR (Insert):", error.message);
-          // Ha az error tartalmazza a 'contract_address' szót, figyelmeztetjük a felhasználót
-          if (error.message.includes('contract_address')) {
-              alert("DATABASE OUTDATED: Please add 'contract_address' column in Supabase SQL Editor. Falling back to local storage for this session.");
-          }
         } catch (err) {
           console.error("CRITICAL SUPABASE ERROR:", err);
         }
     }
 
-    // Local Fallback
     const newMarket: PredictionMerket = {
         ...market,
         id: `local-${crypto.randomUUID()}`,
@@ -147,24 +134,34 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void
   const previousVote = getUserVote(id);
   if (previousVote === option) return;
 
-  if (isSupabaseConfigured() && supabase && !id.startsWith('local-')) {
+  const numericId = parseInt(id);
+  const isSupabaseId = !isNaN(numericId) && !id.startsWith('local-');
+
+  if (isSupabaseConfigured() && supabase && isSupabaseId) {
     try {
+      console.log(`Casting vote to Supabase: ID=${numericId}, Vote=${option}, Prev=${previousVote}`);
       const { error } = await supabase.rpc('increment_vote', { 
-          market_id: parseInt(id), 
+          market_id: numericId, 
           vote_type: option,
           previous_vote: previousVote 
       });
       
       if (!error) {
+        console.log("Vote successfully recorded on server.");
         saveUserVote(id, option);
         return;
       }
-      console.error("SUPABASE ERROR (Vote RPC):", error.message);
+      
+      console.error("SUPABASE VOTE ERROR:", error.message);
+      if (error.message.includes('function') || error.message.includes('not found')) {
+          alert("Supabase Error: 'increment_vote' function missing! Please run the SQL setup script.");
+      }
     } catch (err) {
       console.error("RPC Catch:", err);
     }
   }
   
+  // Local fallback / optimistic update
   const stored = localStorage.getItem(STORAGE_KEY);
   const merkets: PredictionMerket[] = stored ? JSON.parse(stored) : [];
   const updated = merkets.map((m: PredictionMerket) => {
@@ -182,12 +179,13 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void
 };
 
 export const getComments = async (marketId: string): Promise<MerketComment[]> => {
-  if (isSupabaseConfigured() && supabase && !marketId.startsWith('local-')) {
+  const numericId = parseInt(marketId);
+  if (isSupabaseConfigured() && supabase && !isNaN(numericId) && !marketId.startsWith('local-')) {
     try {
       const { data, error } = await supabase
         .from('comments')
         .select('*')
-        .eq('market_id', parseInt(marketId))
+        .eq('market_id', numericId)
         .order('created_at', { ascending: false });
       if (!error && data) return data;
     } catch (err) {}
@@ -198,10 +196,11 @@ export const getComments = async (marketId: string): Promise<MerketComment[]> =>
 };
 
 export const postComment = async (marketId: string, username: string, content: string): Promise<void> => {
-  if (isSupabaseConfigured() && supabase && !marketId.startsWith('local-')) {
+  const numericId = parseInt(marketId);
+  if (isSupabaseConfigured() && supabase && !isNaN(numericId) && !marketId.startsWith('local-')) {
     try {
       const { error } = await supabase.from('comments').insert([{ 
-        market_id: parseInt(marketId), 
+        market_id: numericId, 
         username, 
         content 
       }]);
