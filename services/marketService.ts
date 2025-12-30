@@ -2,9 +2,9 @@
 import { PredictionMerket, MerketComment } from '../types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
-const STORAGE_KEY = 'poly_market_data_v3';
+const STORAGE_KEY = 'poly_market_data_v4';
 const COMMENTS_KEY = 'poly_market_comments_v1';
-const USER_VOTES_KEY = 'poly_user_votes_v3'; 
+const USER_VOTES_KEY = 'poly_user_votes_v4'; 
 const BRAND_LOGO = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
 
 const FUNNY_INSIGHTS = [
@@ -138,16 +138,33 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void
   const previousVote = getUserVote(id);
   if (previousVote === option) return;
 
-  if (isSupabaseConfigured() && supabase && !id.startsWith('local-')) {
-    await supabase.rpc('increment_vote', { 
-        market_id: id, 
-        vote_type: option,
-        previous_vote: previousVote 
-    });
-    saveUserVote(id, option);
+  // Save immediately to local storage so UI is consistent
+  saveUserVote(id, option);
+
+  const numericId = parseInt(id);
+  // Detect if this is a remote DB ID (numeric) or a local string ID
+  const isRemoteId = !isNaN(numericId) && !id.startsWith('local-') && !id.startsWith('poly-');
+
+  if (isSupabaseConfigured() && supabase && isRemoteId) {
+    try {
+        // Call RPC function to safely increment/decrement on server
+        const { error } = await supabase.rpc('increment_vote', { 
+            market_id: numericId, 
+            vote_type: option,
+            previous_vote: previousVote || null
+        });
+        
+        if (error) {
+            console.error("Supabase RPC Error:", error);
+            // If error, we might want to revert logic, but mostly we just log it
+        }
+    } catch (err) {
+        console.error("Failed to vote on supabase:", err);
+    }
     return;
   }
   
+  // Local Storage Fallback
   const stored = localStorage.getItem(STORAGE_KEY);
   const merkets: PredictionMerket[] = stored ? JSON.parse(stored) : [];
   const updated = merkets.map((m: PredictionMerket) => {
@@ -166,7 +183,6 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void
   });
   
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  saveUserVote(id, option);
 };
 
 export const getComments = async (marketId: string): Promise<MerketComment[]> => {

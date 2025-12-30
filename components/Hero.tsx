@@ -6,7 +6,7 @@ interface HeroProps {
 }
 
 const Hero: React.FC<HeroProps> = ({ onStart }) => {
-  // Correct image for Logo, Favicon and Hero as requested
+  // Back to original logo as requested
   const heroImageUrl = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
 
   return (
@@ -14,11 +14,11 @@ const Hero: React.FC<HeroProps> = ({ onStart }) => {
       <div className="container mx-auto px-4">
         
         {/* Main Hero Image - Frameless, high-impact presentation */}
-        <div className="w-full max-w-[300px] md:max-w-[450px] mx-auto mb-12 transform hover:scale-[1.05] transition-transform duration-700 flex items-center justify-center">
+        <div className="w-full max-w-[300px] md:max-w-[400px] mx-auto mb-12 transform hover:scale-[1.05] transition-transform duration-700 flex items-center justify-center">
             <img 
                 src={heroImageUrl} 
                 alt="Polymarket Hero Art" 
-                className="w-full h-auto block drop-shadow-[0_0_60px_rgba(255,255,255,0.3)]"
+                className="w-full h-auto block drop-shadow-[0_0_60px_rgba(255,255,255,0.2)] rounded-full border-4 border-white/10"
             />
         </div>
 
@@ -48,7 +48,7 @@ const Hero: React.FC<HeroProps> = ({ onStart }) => {
                   Enter Terminal
               </button>
               <a 
-                  href="https://dexscreener.com/solana/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  href="https://dexscreener.com/solana/9ftnbzpAP4SUkmHMoFuX4ofvDXCHxbrTXKiSFL4Wpump"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="bg-blue-600 text-white font-black text-xl px-12 py-4 rounded-full hover:bg-blue-700 transition-all shadow-lg border-2 border-white flex items-center justify-center hover:scale-105 active:scale-95"

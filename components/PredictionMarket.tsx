@@ -414,11 +414,59 @@ const PredictionMarket: React.FC<PredictionMarketProps> = ({ initialCreateData, 
   }, [initialCreateData]);
 
   const handleVote = async (id: string, option: 'YES' | 'NO') => {
-    setActionLoading(true); await voteMerket(id, option);
+    const previousVote = getUserVote(id);
+    if (previousVote === option) return;
+
+    // --- OPTIMISTIC UI UPDATE START ---
+    // Instantly update local state to reflect the user's action
+    setMerkets(currentMerkets => currentMerkets.map(m => {
+        if (m.id !== id) return m;
+        let newYes = m.yesVotes;
+        let newNo = m.noVotes;
+        
+        // Remove old vote if exists
+        if (previousVote === 'YES') newYes = Math.max(0, newYes - 1);
+        if (previousVote === 'NO') newNo = Math.max(0, newNo - 1);
+        
+        // Add new vote
+        if (option === 'YES') newYes++;
+        if (option === 'NO') newNo++;
+        
+        return { ...m, yesVotes: newYes, noVotes: newNo };
+    }));
+    
+    // Also update selected modal data optimistically
+    if (selectedMerket && selectedMerket.id === id) {
+        setSelectedMerket(prev => {
+            if (!prev) return null;
+            let newYes = prev.yesVotes;
+            let newNo = prev.noVotes;
+            if (previousVote === 'YES') newYes = Math.max(0, newYes - 1);
+            if (previousVote === 'NO') newNo = Math.max(0, newNo - 1);
+            if (option === 'YES') newYes++;
+            if (option === 'NO') newNo++;
+            return { ...prev, yesVotes: newYes, noVotes: newNo };
+        });
+    }
+    // --- OPTIMISTIC UI UPDATE END ---
+
+    setActionLoading(true);
+    try {
+        await voteMerket(id, option);
+    } catch (e) {
+        console.error("Vote failed, reverting UI:", e);
+        // We could revert state here, but simply refreshing data is usually safer
+    }
+    
+    // Background sync to ensure consistency with DB
     const updated = await getMerkets();
     setMerkets(updated);
-    const current = updated.find(m => m.id === id);
-    if (current) setSelectedMerket(current);
+    
+    // Update modal again with confirmed data
+    if (selectedMerket && selectedMerket.id === id) {
+        const fresh = updated.find(m => m.id === id);
+        if (fresh) setSelectedMerket(fresh);
+    }
     setActionLoading(false);
   };
 
