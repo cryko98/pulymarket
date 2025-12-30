@@ -2,26 +2,10 @@
 import { PredictionMerket, MerketComment } from '../types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
-/**
- * REQUIRED SUPABASE SETUP:
- * 1. Table 'markets' with columns: id (int8), question (text), yes_votes (int8), no_votes (int8), contract_address (text), description (text), image (text).
- * 2. RPC Function 'increment_vote' (Run the SQL provided in the instructions).
- */
-
 const STORAGE_KEY = 'poly_market_data_v3';
 const COMMENTS_KEY = 'poly_market_comments_v1';
 const USER_VOTES_KEY = 'poly_user_votes_v3'; 
 const BRAND_LOGO = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
-
-const FUNNY_INSIGHTS = [
-  "Confidence scoring: High.",
-  "Market sentiment: Extremely Bullish.",
-  "Terminal activity: Peak volume.",
-  "Industry report: $Polymarket dominance.",
-  "Data source: On-chain truth.",
-  "Accuracy: Verified by Oracle.",
-  "Signal status: Strong Buy pressure."
-];
 
 export const fetchMarketCap = async (ca: string): Promise<string | null> => {
   if (!ca || ca.length < 32) return null;
@@ -70,11 +54,11 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
         .order('created_at', { ascending: false });
       
       if (error) {
-        console.error("Supabase Database Error (Fetch):", error.message);
+        console.error("Supabase Fetch Error:", error.message);
       } else if (data) {
         return data.map((item: any) => ({
           id: item.id.toString(),
-          question: item.question || 'Unknown Question',
+          question: item.question || 'Unknown',
           yesVotes: parseInt(item.yes_votes || 0),
           noVotes: parseInt(item.no_votes || 0),
           createdAt: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
@@ -83,51 +67,13 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
           contractAddress: item.contract_address || ''
         }));
       }
-    } catch (err) { 
-      console.error("Supabase Connection Error:", err); 
+    } catch (err) {
+      console.error("Supabase Connection Catch:", err);
     }
   }
 
   const stored = localStorage.getItem(STORAGE_KEY);
   return stored ? JSON.parse(stored) : [];
-};
-
-export const createMarket = async (market: Omit<PredictionMerket, 'id' | 'yesVotes' | 'noVotes' | 'createdAt'>): Promise<void> => {
-    if (isSupabaseConfigured() && supabase) {
-        try {
-          const payload: any = {
-            question: market.question,
-            description: market.description || FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)],
-            image: market.image || BRAND_LOGO,
-            yes_votes: 0,
-            no_votes: 0
-          };
-
-          if (market.contractAddress) {
-            payload.contract_address = market.contractAddress;
-          }
-          
-          const { error } = await supabase.from('markets').insert([payload]);
-          
-          if (!error) return;
-          console.error("SUPABASE ERROR (Insert):", error.message);
-        } catch (err) {
-          console.error("CRITICAL SUPABASE ERROR:", err);
-        }
-    }
-
-    const newMarket: PredictionMerket = {
-        ...market,
-        id: `local-${crypto.randomUUID()}`,
-        yesVotes: 0,
-        noVotes: 0,
-        createdAt: Date.now(),
-        image: market.image || BRAND_LOGO
-    };
-
-    const stored = localStorage.getItem(STORAGE_KEY);
-    const currentMarkets: PredictionMerket[] = stored ? JSON.parse(stored) : [];
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([newMarket, ...currentMarkets]));
 };
 
 export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void> => {
@@ -139,43 +85,79 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void
 
   if (isSupabaseConfigured() && supabase && isSupabaseId) {
     try {
-      console.log(`Casting vote to Supabase: ID=${numericId}, Vote=${option}, Prev=${previousVote}`);
+      console.log(`RPC call starting: ID=${numericId}, Vote=${option}, Previous=${previousVote}`);
+      
       const { error } = await supabase.rpc('increment_vote', { 
           market_id: numericId, 
           vote_type: option,
           previous_vote: previousVote 
       });
       
-      if (!error) {
-        console.log("Vote successfully recorded on server.");
-        saveUserVote(id, option);
-        return;
+      if (error) {
+        console.error("RPC Error Details:", error);
+        alert(`Supabase Voting Error: ${error.message}\n\nMake sure the SQL function 'increment_vote' is created with 'SECURITY DEFINER'.`);
+        throw error;
       }
       
-      console.error("SUPABASE VOTE ERROR:", error.message);
-      if (error.message.includes('function') || error.message.includes('not found')) {
-          alert("Supabase Error: 'increment_vote' function missing! Please run the SQL setup script.");
-      }
+      console.log("RPC Success! Vote recorded.");
+      saveUserVote(id, option);
+      
+      // Adjunk egy kis időt az adatbázisnak a frissítésre
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return;
     } catch (err) {
-      console.error("RPC Catch:", err);
+      console.error("Voting Catch Block:", err);
     }
   }
   
-  // Local fallback / optimistic update
-  const stored = localStorage.getItem(STORAGE_KEY);
-  const merkets: PredictionMerket[] = stored ? JSON.parse(stored) : [];
-  const updated = merkets.map((m: PredictionMerket) => {
-    if (m.id !== id) return m;
-    let newYes = m.yesVotes;
-    let newNo = m.noVotes;
-    if (previousVote === 'YES') newYes = Math.max(0, newYes - 1);
-    if (previousVote === 'NO') newNo = Math.max(0, newNo - 1);
-    if (option === 'YES') newYes += 1;
-    if (option === 'NO') newNo += 1;
-    return { ...m, yesVotes: newYes, noVotes: newNo };
-  });
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  // Local/Optimistic Update ha a Supabase nem érhető el
   saveUserVote(id, option);
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored) {
+    const merkets: PredictionMerket[] = JSON.parse(stored);
+    const updated = merkets.map((m: PredictionMerket) => {
+      if (m.id !== id) return m;
+      let newYes = m.yesVotes;
+      let newNo = m.noVotes;
+      if (previousVote === 'YES') newYes = Math.max(0, newYes - 1);
+      if (previousVote === 'NO') newNo = Math.max(0, newNo - 1);
+      if (option === 'YES') newYes += 1;
+      if (option === 'NO') newNo += 1;
+      return { ...m, yesVotes: newYes, noVotes: newNo };
+    });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  }
+};
+
+export const createMarket = async (market: Omit<PredictionMerket, 'id' | 'yesVotes' | 'noVotes' | 'createdAt'>): Promise<void> => {
+    if (isSupabaseConfigured() && supabase) {
+        try {
+          const payload: any = {
+            question: market.question,
+            description: market.description || "Analysis active.",
+            image: market.image || BRAND_LOGO,
+            yes_votes: 0,
+            no_votes: 0
+          };
+          if (market.contractAddress) payload.contract_address = market.contractAddress;
+          
+          const { error } = await supabase.from('markets').insert([payload]);
+          if (!error) return;
+          console.error("Supabase Insert Error:", error.message);
+        } catch (err) {}
+    }
+
+    const newMarket: PredictionMerket = {
+        ...market,
+        id: `local-${crypto.randomUUID()}`,
+        yesVotes: 0,
+        noVotes: 0,
+        createdAt: Date.now(),
+        image: market.image || BRAND_LOGO
+    };
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const currentMarkets: PredictionMerket[] = stored ? JSON.parse(stored) : [];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([newMarket, ...currentMarkets]));
 };
 
 export const getComments = async (marketId: string): Promise<MerketComment[]> => {
