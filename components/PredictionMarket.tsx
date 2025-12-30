@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { getMerkets, voteMerket, getUserVote, createMarket, getComments, postComment, fetchMarketCap } from '../services/marketService';
 import { PredictionMerket as MerketType, MerketComment } from '../types';
-import { Loader2, X, Plus, MessageSquare, Star, ChevronUp, ChevronDown, Send, TrendingUp, BarChart, Zap } from 'lucide-react';
+import { Loader2, X, Plus, MessageSquare, Star, ChevronUp, ChevronDown, Send, BarChart } from 'lucide-react';
 
 const BRAND_LOGO = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
 
@@ -23,39 +23,32 @@ const TrendGraph: React.FC<{ yesProb: number; marketId: string; height?: number 
     const segments = 60;
     const width = 600;
     
-    // Seeded random for consistent "history" per market
     let seed = marketId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const seededRandom = () => {
       seed = (seed * 9301 + 49297) % 233280;
       return seed / 233280;
     };
 
-    // Full 0-100 scale
     const minY = 0;
     const maxY = 100;
     const range = maxY - minY;
 
     const mapValueToY = (val: number) => {
-      // 0 is top, height is bottom
       const normalized = (val - minY) / range;
       return height - (normalized * height);
     };
 
-    // Generate path
     for (let i = 0; i <= segments; i++) {
       const x = (i / segments) * width;
       const progress = i / segments;
       
-      // History walk that converges on the current real percentage at the end
-      // We start from 50 (neutral) and walk towards the target
       const startValueYes = 50;
       const startValueNo = 50;
       
-      // Interpolate towards target with some noise
       const baseYes = startValueYes + (yesProb - startValueYes) * progress;
       const baseNo = startValueNo + (noProb - startValueNo) * progress;
       
-      const noiseIntensity = (1 - progress) * 12; // More noise in the past
+      const noiseIntensity = (1 - progress) * 12;
       const currentYes = i === segments ? yesProb : baseYes + (seededRandom() - 0.5) * noiseIntensity;
       const currentNo = i === segments ? noProb : baseNo + (seededRandom() - 0.5) * noiseIntensity;
 
@@ -70,9 +63,7 @@ const TrendGraph: React.FC<{ yesProb: number; marketId: string; height?: number 
 
   return (
     <div className="w-full relative flex bg-[#0d1117] rounded-xl border border-white/5 my-6 overflow-hidden shadow-2xl group/graph" style={{ height: `${height}px` }}>
-      {/* Graph Area */}
       <div className="flex-1 relative border-r border-white/10 overflow-hidden">
-        {/* Horizontal Grid lines */}
         <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-10">
           {labels.map((_, i) => (
             <div key={i} className="w-full border-t border-white/20"></div>
@@ -80,39 +71,17 @@ const TrendGraph: React.FC<{ yesProb: number; marketId: string; height?: number 
         </div>
         
         <svg className="w-full h-full" viewBox={`0 0 600 ${height}`} preserveAspectRatio="none">
-          {/* NO Line (Red) */}
-          <polyline
-            fill="none"
-            stroke="#ef4444"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            points={points.no}
-            className="transition-all duration-700"
-          />
-          {/* YES Line (Green) */}
-          <polyline
-            fill="none"
-            stroke="#22c55e"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            points={points.yes}
-            className="transition-all duration-700"
-          />
-          
-          {/* Real-time Terminal Points */}
+          <polyline fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={points.no} className="transition-all duration-700" />
+          <polyline fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={points.yes} className="transition-all duration-700" />
           <circle cx="600" cy={points.mapValueToY(yesProb)} r="6" fill="#22c55e" className="transition-all duration-700 shadow-lg" />
           <circle cx="600" cy={points.mapValueToY(noProb)} r="6" fill="#ef4444" className="transition-all duration-700 shadow-lg" />
         </svg>
 
-        {/* Source overlay */}
         <div className="absolute bottom-2 left-3 bg-black/60 px-3 py-1 rounded-md text-[9px] font-black text-white/40 italic uppercase tracking-[0.2em] border border-white/5">
           SOURCE: POLY-MARKET.SITE
         </div>
       </div>
 
-      {/* Right-side Axis Labels */}
       <div className="w-14 flex flex-col justify-between items-center py-0.5 opacity-40 text-[10px] font-black text-white bg-black/40">
         {labels.map((val) => (
           <div key={val} className="flex-1 flex items-center justify-center border-b border-white/5 w-full last:border-b-0 italic">
@@ -417,57 +386,25 @@ const PredictionMarket: React.FC<PredictionMarketProps> = ({ initialCreateData, 
     const previousVote = getUserVote(id);
     if (previousVote === option) return;
 
-    // --- OPTIMISTIC UI UPDATE START ---
-    // Instantly update local state to reflect the user's action
-    setMerkets(currentMerkets => currentMerkets.map(m => {
-        if (m.id !== id) return m;
-        let newYes = m.yesVotes;
-        let newNo = m.noVotes;
-        
-        // Remove old vote if exists
-        if (previousVote === 'YES') newYes = Math.max(0, newYes - 1);
-        if (previousVote === 'NO') newNo = Math.max(0, newNo - 1);
-        
-        // Add new vote
-        if (option === 'YES') newYes++;
-        if (option === 'NO') newNo++;
-        
-        return { ...m, yesVotes: newYes, noVotes: newNo };
-    }));
-    
-    // Also update selected modal data optimistically
-    if (selectedMerket && selectedMerket.id === id) {
-        setSelectedMerket(prev => {
-            if (!prev) return null;
-            let newYes = prev.yesVotes;
-            let newNo = prev.noVotes;
-            if (previousVote === 'YES') newYes = Math.max(0, newYes - 1);
-            if (previousVote === 'NO') newNo = Math.max(0, newNo - 1);
-            if (option === 'YES') newYes++;
-            if (option === 'NO') newNo++;
-            return { ...prev, yesVotes: newYes, noVotes: newNo };
-        });
-    }
-    // --- OPTIMISTIC UI UPDATE END ---
-
     setActionLoading(true);
     try {
+        // Wait for Supabase update strictly
         await voteMerket(id, option);
+        
+        // Then refresh global state to get new numbers
+        const updated = await getMerkets();
+        setMerkets(updated);
+        
+        // Update modal with fresh data
+        if (selectedMerket && selectedMerket.id === id) {
+            const fresh = updated.find(m => m.id === id);
+            if (fresh) setSelectedMerket(fresh);
+        }
     } catch (e) {
-        console.error("Vote failed, reverting UI:", e);
-        // We could revert state here, but simply refreshing data is usually safer
+        console.error("Vote failed:", e);
+    } finally {
+        setActionLoading(false);
     }
-    
-    // Background sync to ensure consistency with DB
-    const updated = await getMerkets();
-    setMerkets(updated);
-    
-    // Update modal again with confirmed data
-    if (selectedMerket && selectedMerket.id === id) {
-        const fresh = updated.find(m => m.id === id);
-        if (fresh) setSelectedMerket(fresh);
-    }
-    setActionLoading(false);
   };
 
   const sortedMerkets = useMemo(() => {

@@ -8,7 +8,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onLogoClick }) => {
   const [copied, setCopied] = useState(false);
-  const ca = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+  const ca = "CaqKygNqDntgTAf6CbqBroudbngAKcoQViwVZ3jgbonk";
   const logoUrl = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
 
   const handleCopy = () => {

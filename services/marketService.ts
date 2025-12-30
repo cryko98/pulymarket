@@ -2,7 +2,6 @@
 import { PredictionMerket, MerketComment } from '../types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
-const STORAGE_KEY = 'poly_market_data_v4';
 const COMMENTS_KEY = 'poly_market_comments_v1';
 const USER_VOTES_KEY = 'poly_user_votes_v4'; 
 const BRAND_LOGO = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
@@ -16,40 +15,6 @@ const FUNNY_INSIGHTS = [
   "Accuracy: Verified by Oracle.",
   "Signal status: Strong Buy pressure."
 ];
-
-const SEED_DATA: PredictionMerket[] = [
-  {
-    id: 'poly-1',
-    question: 'Will $Polymarket reach 100M Market Cap by April?',
-    yesVotes: 420,
-    noVotes: 69,
-    createdAt: Date.now(),
-    image: BRAND_LOGO,
-    description: "The ultimate survival metric. Monitoring growth velocity across the Solana ecosystem.",
-    contractAddress: "9ftnbzpAP4SUkmHMoFuX4ofvDXCHxbrTXKiSFL4Wpump"
-  }
-];
-
-// Helper to safely get local data with fallback
-const getLocalMarkets = (): PredictionMerket[] => {
-    try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-                return parsed;
-            }
-        }
-    } catch (e) {
-        console.error("Local storage error:", e);
-    }
-    
-    // Fallback: Initialize with seed data if storage is empty or invalid
-    // Deep copy to prevent reference issues
-    const seed = JSON.parse(JSON.stringify(SEED_DATA));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
-    return seed;
-};
 
 export const fetchMarketCap = async (ca: string): Promise<string | null> => {
   if (!ca || ca.length < 32) return null;
@@ -69,6 +34,7 @@ export const fetchMarketCap = async (ca: string): Promise<string | null> => {
   }
 };
 
+// Tracks which option the specific user chose (browser-based identity)
 export const getUserVote = (merketId: string): 'YES' | 'NO' | null => {
   try {
     const stored = localStorage.getItem(USER_VOTES_KEY);
@@ -83,6 +49,8 @@ export const hasUserVoted = (merketId: string): boolean => {
   return getUserVote(merketId) !== null;
 };
 
+// We only save the FACT that the user voted locally. 
+// The actual COUNTS are strictly in Supabase.
 const saveUserVote = (merketId: string, option: 'YES' | 'NO') => {
   try {
     const stored = localStorage.getItem(USER_VOTES_KEY);
@@ -95,6 +63,7 @@ const saveUserVote = (merketId: string, option: 'YES' | 'NO') => {
 };
 
 export const getMerkets = async (): Promise<PredictionMerket[]> => {
+  // STRICT SUPABASE ONLY - No Local Storage Fallback for Markets
   if (isSupabaseConfigured() && supabase) {
     try {
       const { data, error } = await supabase
@@ -114,93 +83,84 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
           contractAddress: item.contract_address
         }));
       }
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+        console.error("Supabase fetch error:", err); 
+    }
   }
-
-  // Use the robust local helper
-  const localData = getLocalMarkets();
-  return localData.sort((a, b) => b.createdAt - a.createdAt);
+  return [];
 };
 
 export const createMarket = async (market: Omit<PredictionMerket, 'id' | 'yesVotes' | 'noVotes' | 'createdAt'>): Promise<void> => {
-    const newMarket: PredictionMerket = {
-        ...market,
-        id: `local-${crypto.randomUUID()}`,
-        yesVotes: 0,
-        noVotes: 0,
-        createdAt: Date.now(),
-        image: market.image || BRAND_LOGO
-    };
-
     if (isSupabaseConfigured() && supabase) {
-        const { error } = await supabase.from('markets').insert([{
+        await supabase.from('markets').insert([{
             question: market.question,
             description: market.description,
-            image: market.image,
+            image: market.image || BRAND_LOGO,
             yes_votes: 0,
             no_votes: 0,
             contract_address: market.contractAddress
         }]);
-        if (!error) return;
+    } else {
+        console.error("Supabase not configured. Cannot create market.");
+        alert("Database connection missing. Cannot deploy market.");
     }
-
-    const currentMarkets = getLocalMarkets();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([newMarket, ...currentMarkets]));
 };
 
+// IMPROVED VOTING LOGIC: Uses RPC for atomic updates
 export const voteMerket = async (id: string, option: 'YES' | 'NO'): Promise<void> => {
-  const previousVote = getUserVote(id);
-  if (previousVote === option) return;
-
-  // 1. Save User's Choice Locally (Instant persistence for UI state)
-  saveUserVote(id, option);
-
-  const numericId = parseInt(id);
-  // Detect if this is a remote DB ID (numeric) or a local string ID
-  const isRemoteId = !isNaN(numericId) && !id.startsWith('local-') && !id.startsWith('poly-');
-
-  // 2. Try Supabase Update
-  if (isSupabaseConfigured() && supabase && isRemoteId) {
-    try {
-        const { error } = await supabase.rpc('increment_vote', { 
-            market_id: numericId, 
-            vote_type: option,
-            previous_vote: previousVote || null
-        });
-        
-        if (error) console.error("Supabase RPC Error:", error);
-    } catch (err) {
-        console.error("Failed to vote on supabase:", err);
-    }
-    return;
+  if (!isSupabaseConfigured() || !supabase) {
+      console.error("No Supabase connection");
+      return;
   }
-  
-  // 3. Local Storage Update (Correct logic ensuring persistence)
-  const merkets = getLocalMarkets(); // GUARANTEED to have data (seed or existing)
-  
-  const updated = merkets.map((m: PredictionMerket) => {
-    // Convert both to string to be safe against number/string mismatches
-    if (String(m.id) !== String(id)) return m;
+
+  const previousVote = getUserVote(id);
+  if (previousVote === option) return; // No change needed
+
+  try {
+    // Call the SQL function (RPC) to handle atomic increment/decrement
+    // This prevents race conditions and "jumping" votes
+    const { error } = await supabase.rpc('vote_market', {
+        p_market_id: parseInt(id),
+        p_vote_type: option,
+        p_previous_vote: previousVote || null
+    });
+
+    if (error) {
+        console.error("RPC Error:", error);
+        // Fallback: If RPC fails (e.g. function not created), try direct update
+        // Note: This is less safe but provides a fallback
+        await manualVoteFallback(id, option, previousVote);
+    } else {
+        // Only update local state if server confirmed success
+        saveUserVote(id, option);
+    }
+
+  } catch (err) {
+      console.error("Vote transaction failed:", err);
+      throw err;
+  }
+};
+
+const manualVoteFallback = async (id: string, option: 'YES' | 'NO', previousVote: 'YES' | 'NO' | null) => {
+    if (!supabase) return;
     
-    let newYes = m.yesVotes;
-    let newNo = m.noVotes;
+    const { data } = await supabase.from('markets').select('yes_votes, no_votes').eq('id', id).single();
+    if (!data) return;
 
-    // Remove old vote
-    if (previousVote === 'YES') newYes = Math.max(0, newYes - 1);
-    if (previousVote === 'NO') newNo = Math.max(0, newNo - 1);
+    let { yes_votes, no_votes } = data;
 
-    // Add new vote
-    if (option === 'YES') newYes += 1;
-    if (option === 'NO') newNo += 1;
+    if (previousVote === 'YES') yes_votes--;
+    if (previousVote === 'NO') no_votes--;
+    
+    if (option === 'YES') yes_votes++;
+    if (option === 'NO') no_votes++;
 
-    return { ...m, yesVotes: newYes, noVotes: newNo };
-  });
-  
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    await supabase.from('markets').update({ yes_votes, no_votes }).eq('id', id);
+    saveUserVote(id, option);
 };
 
 export const getComments = async (marketId: string): Promise<MerketComment[]> => {
-  if (isSupabaseConfigured() && supabase && !marketId.startsWith('local-')) {
+  if (isSupabaseConfigured() && supabase) {
     const { data, error } = await supabase
       .from('comments')
       .select('*')
@@ -208,6 +168,7 @@ export const getComments = async (marketId: string): Promise<MerketComment[]> =>
       .order('created_at', { ascending: false });
     if (!error && data) return data;
   }
+  
   const stored = localStorage.getItem(COMMENTS_KEY);
   const allComments: MerketComment[] = stored ? JSON.parse(stored) : [];
   return allComments.filter(c => c.market_id === marketId).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -215,12 +176,12 @@ export const getComments = async (marketId: string): Promise<MerketComment[]> =>
 
 export const postComment = async (marketId: string, username: string, content: string): Promise<void> => {
   if (!username.trim() || !content.trim()) return;
-  if (isSupabaseConfigured() && supabase && !marketId.startsWith('local-')) {
+  if (isSupabaseConfigured() && supabase) {
     await supabase.from('comments').insert([{ market_id: marketId, username, content }]);
-    return;
+  } else {
+      const stored = localStorage.getItem(COMMENTS_KEY);
+      const allComments = stored ? JSON.parse(stored) : [];
+      const newComment = { id: crypto.randomUUID(), market_id: marketId, username, content, created_at: new Date().toISOString() };
+      localStorage.setItem(COMMENTS_KEY, JSON.stringify([newComment, ...allComments]));
   }
-  const stored = localStorage.getItem(COMMENTS_KEY);
-  const allComments = stored ? JSON.parse(stored) : [];
-  const newComment = { id: crypto.randomUUID(), market_id: marketId, username, content, created_at: new Date().toISOString() };
-  localStorage.setItem(COMMENTS_KEY, JSON.stringify([newComment, ...allComments]));
 };
