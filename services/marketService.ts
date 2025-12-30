@@ -2,6 +2,14 @@
 import { PredictionMerket, MerketComment } from '../types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
+/**
+ * FIX FOR 'contract_address' ERROR:
+ * Run this in Supabase SQL Editor:
+ * ALTER TABLE markets ADD COLUMN IF NOT EXISTS contract_address TEXT;
+ * ALTER TABLE markets ADD COLUMN IF NOT EXISTS image TEXT;
+ * ALTER TABLE markets ADD COLUMN IF NOT EXISTS description TEXT;
+ */
+
 const STORAGE_KEY = 'poly_market_data_v3';
 const COMMENTS_KEY = 'poly_market_comments_v1';
 const USER_VOTES_KEY = 'poly_user_votes_v3'; 
@@ -64,17 +72,17 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
         .order('created_at', { ascending: false });
       
       if (error) {
-        console.error("Supabase Database Error (Fetch):", error.message, error.details);
+        console.error("Supabase Database Error (Fetch):", error.message);
       } else if (data) {
         return data.map((item: any) => ({
           id: item.id.toString(),
-          question: item.question,
+          question: item.question || 'Unknown Question',
           yesVotes: parseInt(item.yes_votes || 0),
           noVotes: parseInt(item.no_votes || 0),
           createdAt: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
-          image: item.image,
-          description: item.description,
-          contractAddress: item.contract_address
+          image: item.image || BRAND_LOGO,
+          description: item.description || '',
+          contractAddress: item.contract_address || ''
         }));
       }
     } catch (err) { 
@@ -89,14 +97,19 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
 export const createMarket = async (market: Omit<PredictionMerket, 'id' | 'yesVotes' | 'noVotes' | 'createdAt'>): Promise<void> => {
     if (isSupabaseConfigured() && supabase) {
         try {
-          const payload = {
+          // Dinamikusan építjük fel a payloadot, hogy ha hiányzik egy oszlop, ne dőljön el minden
+          const payload: any = {
             question: market.question,
             description: market.description || FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)],
             image: market.image || BRAND_LOGO,
             yes_votes: 0,
-            no_votes: 0,
-            contract_address: market.contractAddress
+            no_votes: 0
           };
+
+          // Csak akkor adjuk hozzá, ha van értéke, így elkerülhető pár hiba
+          if (market.contractAddress) {
+            payload.contract_address = market.contractAddress;
+          }
           
           const { error, data } = await supabase.from('markets').insert([payload]).select();
           
@@ -105,13 +118,14 @@ export const createMarket = async (market: Omit<PredictionMerket, 'id' | 'yesVot
             return;
           }
           
-          console.error("SUPABASE ERROR (Insert):", error.message, "Details:", error.details);
-          alert(`Supabase Error: ${error.message}. Fallback to local storage.`);
+          console.error("SUPABASE ERROR (Insert):", error.message);
+          // Ha az error tartalmazza a 'contract_address' szót, figyelmeztetjük a felhasználót
+          if (error.message.includes('contract_address')) {
+              alert("DATABASE OUTDATED: Please add 'contract_address' column in Supabase SQL Editor. Falling back to local storage for this session.");
+          }
         } catch (err) {
           console.error("CRITICAL SUPABASE ERROR:", err);
         }
-    } else {
-      console.warn("Supabase not configured. Saving to local storage.");
     }
 
     // Local Fallback
