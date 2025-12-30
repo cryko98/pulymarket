@@ -8,6 +8,8 @@ export interface PredictionMerket {
   image?: string;
   description?: string;
   contractAddress?: string; // Optional Solana CA
+  optionA?: string; // Custom label for "YES" (Green)
+  optionB?: string; // Custom label for "NO" (Red)
 }
 
 export interface MerketComment {

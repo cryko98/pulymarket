@@ -68,7 +68,7 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
     try {
       const { data, error } = await supabase
         .from('markets')
-        .select('id, question, yes_votes, no_votes, created_at, image, description, contract_address')
+        .select('id, question, yes_votes, no_votes, created_at, image, description, contract_address, option_a, option_b')
         .order('created_at', { ascending: false });
       
       if (!error && data) {
@@ -80,7 +80,9 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
           createdAt: item.created_at ? new Date(item.created_at).getTime() : Date.now(),
           image: item.image,
           description: item.description || FUNNY_INSIGHTS[Math.floor(Math.random() * FUNNY_INSIGHTS.length)],
-          contractAddress: item.contract_address
+          contractAddress: item.contract_address,
+          optionA: item.option_a || 'YES',
+          optionB: item.option_b || 'NO'
         }));
       }
     } catch (err) { 
@@ -98,7 +100,9 @@ export const createMarket = async (market: Omit<PredictionMerket, 'id' | 'yesVot
             image: market.image || BRAND_LOGO,
             yes_votes: 0,
             no_votes: 0,
-            contract_address: market.contractAddress
+            contract_address: market.contractAddress,
+            option_a: market.optionA || 'YES',
+            option_b: market.optionB || 'NO'
         }]);
     } else {
         console.error("Supabase not configured. Cannot create market.");

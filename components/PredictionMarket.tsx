@@ -130,6 +130,9 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
   const totalVotes = merket.yesVotes + merket.noVotes;
   const yesProb = totalVotes === 0 ? 50 : Math.round((merket.yesVotes / totalVotes) * 100);
 
+  const labelA = merket.optionA || 'YES';
+  const labelB = merket.optionB || 'NO';
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -168,7 +171,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
     const slug = slugify(merket.question);
     const domain = window.location.origin;
     const shareLink = `${domain}/${slug}`;
-    const tweetText = `Terminal Analysis: "${merket.question}"\n\nSentiment: ${yesProb}% Bullish\n\nVote on-chain:\n${shareLink}\n\n$Polymarket #Solana`;
+    const tweetText = `Terminal Analysis: "${merket.question}"\n\n${labelA}: ${yesProb}%\n${labelB}: ${100-yesProb}%\n\nVote on-chain:\n${shareLink}\n\n$Polymarket #Solana`;
     window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(tweetText)}`, '_blank');
   };
 
@@ -196,8 +199,8 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
 
             <div className="mb-6 md:mb-8 p-4 md:p-8 bg-white/5 rounded-3xl md:rounded-[2rem] border border-white/5 relative">
                <div className="flex justify-between items-end mb-4 md:mb-6 font-black italic uppercase tracking-tighter">
-                  <div className="flex flex-col"><span className="text-green-400 text-[9px] md:text-[10px] tracking-widest mb-1 opacity-60 italic uppercase font-black">Bullish Signal</span><span className="text-2xl md:text-4xl text-green-500">{yesProb}% YES</span></div>
-                  <div className="flex flex-col items-end"><span className="text-red-400 text-[9px] md:text-[10px] tracking-widest mb-1 opacity-60 italic uppercase font-black">Bearish Signal</span><span className="text-2xl md:text-4xl text-red-500">{100-yesProb}% NO</span></div>
+                  <div className="flex flex-col"><span className="text-green-400 text-[9px] md:text-[10px] tracking-widest mb-1 opacity-60 italic uppercase font-black">{labelA} Signal</span><span className="text-2xl md:text-4xl text-green-500">{yesProb}% {labelA}</span></div>
+                  <div className="flex flex-col items-end"><span className="text-red-400 text-[9px] md:text-[10px] tracking-widest mb-1 opacity-60 italic uppercase font-black">{labelB} Signal</span><span className="text-2xl md:text-4xl text-red-500">{100-yesProb}% {labelB}</span></div>
                </div>
                <div className="h-3 md:h-4 bg-white/5 rounded-full overflow-hidden flex mb-4 md:mb-6 border border-white/5">
                   <div className="h-full bg-green-600 transition-all duration-1000 shadow-[0_0_15px_rgba(34,197,94,0.4)]" style={{ width: `${yesProb}%` }} />
@@ -232,8 +235,8 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
         </div>
         <div className="w-full md:w-80 bg-[#0f172a] md:bg-white/[0.01] p-5 md:p-12 flex flex-col justify-center gap-3 md:gap-4 border-t border-white/10 md:border-t-0 md:border-l z-10 shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-none pb-8 md:pb-12">
           <div className="flex md:flex-col gap-3">
-             <button onClick={() => setSelectedOption('YES')} className={`flex-1 md:w-full py-4 md:py-5 rounded-2xl font-black text-sm md:text-lg border transition-all uppercase italic tracking-tighter ${selectedOption === 'YES' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-transparent border-white/5 hover:border-white/20 text-white/40'}`}>Yes Signal</button>
-             <button onClick={() => setSelectedOption('NO')} className={`flex-1 md:w-full py-4 md:py-5 rounded-2xl font-black text-sm md:text-lg border transition-all uppercase italic tracking-tighter ${selectedOption === 'NO' ? 'bg-rose-500/20 border-rose-500 text-rose-400' : 'bg-transparent border-white/5 hover:border-white/20 text-white/40'}`}>No Signal</button>
+             <button onClick={() => setSelectedOption('YES')} className={`flex-1 md:w-full py-4 md:py-5 rounded-2xl font-black text-sm md:text-lg border transition-all uppercase italic tracking-tighter ${selectedOption === 'YES' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-transparent border-white/5 hover:border-white/20 text-white/40'}`}>{labelA}</button>
+             <button onClick={() => setSelectedOption('NO')} className={`flex-1 md:w-full py-4 md:py-5 rounded-2xl font-black text-sm md:text-lg border transition-all uppercase italic tracking-tighter ${selectedOption === 'NO' ? 'bg-rose-500/20 border-rose-500 text-rose-400' : 'bg-transparent border-white/5 hover:border-white/20 text-white/40'}`}>{labelB}</button>
           </div>
           <button onClick={() => onVote(merket.id, selectedOption!)} disabled={!selectedOption || isVoting} className="w-full bg-blue-600 text-white font-black py-4 md:py-5 rounded-2xl hover:bg-blue-500 transition-all disabled:opacity-20 mt-2 md:mt-4 shadow-xl uppercase italic tracking-tighter text-sm md:text-base">{isVoting ? <Loader2 className="animate-spin mx-auto" /> : "Submit Vote"}</button>
           <div className="grid grid-cols-1 gap-3 mt-2 md:mt-6">
@@ -251,6 +254,9 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
   const [mcap, setMcap] = useState<string | null>(null);
   const totalVotes = merket.yesVotes + merket.noVotes;
   const yesProb = totalVotes === 0 ? 50 : Math.round((merket.yesVotes / totalVotes) * 100);
+
+  const labelA = merket.optionA || 'YES';
+  const labelB = merket.optionB || 'NO';
 
   useEffect(() => {
     if (merket.contractAddress) {
@@ -273,15 +279,15 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
       </div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex flex-col gap-1.5 md:gap-2">
-          <div className="flex items-center gap-2 text-[9px] md:text-[10px] font-black text-green-400 uppercase italic tracking-widest"><span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span><span>YES: {yesProb}%</span></div>
-          <div className="flex items-center gap-2 text-[9px] md:text-[10px] font-black text-red-400 uppercase italic tracking-widest"><span className="w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span><span>NO: {100-yesProb}%</span></div>
+          <div className="flex items-center gap-2 text-[9px] md:text-[10px] font-black text-green-400 uppercase italic tracking-widest"><span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span><span>{labelA}: {yesProb}%</span></div>
+          <div className="flex items-center gap-2 text-[9px] md:text-[10px] font-black text-red-400 uppercase italic tracking-widest"><span className="w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span><span>{labelB}: {100-yesProb}%</span></div>
         </div>
         <div className="shrink-0 scale-90 md:scale-100"><ChanceIndicator percentage={yesProb} /></div>
       </div>
       <TrendGraph yesProb={yesProb} marketId={merket.id} height={80} />
       <div className="grid grid-cols-2 gap-2 md:gap-3 mb-4 md:mb-6 mt-2">
-        <button onClick={(e) => { e.stopPropagation(); onOpen(merket); }} className="flex items-center justify-center gap-2 bg-[#2d4a41]/40 hover:bg-[#345b4e]/60 text-[#4ade80] border border-[#3e6b5c] rounded-2xl py-2.5 md:py-3 px-2 font-black text-[9px] md:text-[10px] uppercase italic transition-all">Yes <ChevronUp size={12} className="md:w-[14px] md:h-[14px]" /></button>
-        <button onClick={(e) => { e.stopPropagation(); onOpen(merket); }} className="flex items-center justify-center gap-2 bg-[#4a3434]/40 hover:bg-[#5b3e3e]/60 text-[#fb7185] border border-[#6b3e3e] rounded-2xl py-2.5 md:py-3 px-2 font-black text-[9px] md:text-[10px] uppercase italic transition-all">No <ChevronDown size={12} className="md:w-[14px] md:h-[14px]" /></button>
+        <button onClick={(e) => { e.stopPropagation(); onOpen(merket); }} className="flex items-center justify-center gap-2 bg-[#2d4a41]/40 hover:bg-[#345b4e]/60 text-[#4ade80] border border-[#3e6b5c] rounded-2xl py-2.5 md:py-3 px-2 font-black text-[9px] md:text-[10px] uppercase italic transition-all truncate">{labelA} <ChevronUp size={12} className="md:w-[14px] md:h-[14px]" /></button>
+        <button onClick={(e) => { e.stopPropagation(); onOpen(merket); }} className="flex items-center justify-center gap-2 bg-[#4a3434]/40 hover:bg-[#5b3e3e]/60 text-[#fb7185] border border-[#6b3e3e] rounded-2xl py-2.5 md:py-3 px-2 font-black text-[9px] md:text-[10px] uppercase italic transition-all truncate">{labelB} <ChevronDown size={12} className="md:w-[14px] md:h-[14px]" /></button>
       </div>
       <div className="mt-auto pt-3 md:pt-4 border-t border-white/5 flex justify-between items-center text-[9px] md:text-[10px] font-black uppercase italic text-white/20 tracking-[0.2em]">
         <div className="flex items-center gap-4"><span className="flex items-center gap-1.5"><Star size={10} className="text-yellow-500/50 md:w-[12px] md:h-[12px]" /> {totalVotes} Votes</span></div>
@@ -302,6 +308,8 @@ const CreateMarketModal: React.FC<CreateMarketModalProps> = ({ onClose, onCreate
     const [question, setQuestion] = useState(initialQuestion);
     const [description, setDescription] = useState(initialDescription);
     const [contractAddress, setContractAddress] = useState('');
+    const [optionA, setOptionA] = useState('');
+    const [optionB, setOptionB] = useState('');
     const [image, setImage] = useState('');
     const [preview, setPreview] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -324,7 +332,9 @@ const CreateMarketModal: React.FC<CreateMarketModalProps> = ({ onClose, onCreate
             question, 
             description: description || undefined, 
             contractAddress: contractAddress || undefined, 
-            image: image || BRAND_LOGO 
+            image: image || BRAND_LOGO,
+            optionA: optionA.trim() || undefined,
+            optionB: optionB.trim() || undefined
           }); 
           onCreated(); 
           onClose(); 
@@ -339,6 +349,12 @@ const CreateMarketModal: React.FC<CreateMarketModalProps> = ({ onClose, onCreate
                 <div className="mb-6 md:mb-8"><h2 className="text-3xl md:text-4xl font-black italic uppercase tracking-tighter">New Market</h2><p className="text-blue-600 font-bold uppercase text-[10px] md:text-xs tracking-widest italic mt-1">Deploy terminal signal</p></div>
                 <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
                     <div><label className="block text-[9px] md:text-[10px] font-black uppercase text-gray-400 mb-2 ml-1 italic tracking-widest">Question (Required)</label><input required type="text" placeholder="Outcome question?" className="w-full bg-blue-50 border-2 border-blue-100 rounded-2xl p-3 md:p-4 font-bold text-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-600/10 text-sm md:text-base" value={question} onChange={(e) => setQuestion(e.target.value)} /></div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                       <div><label className="block text-[9px] md:text-[10px] font-black uppercase text-green-600 mb-2 ml-1 italic tracking-widest">Option 1 Label (Optional)</label><input type="text" placeholder="YES" className="w-full bg-green-50 border-2 border-green-100 rounded-2xl p-3 md:p-4 font-bold text-green-900 focus:outline-none focus:ring-4 focus:ring-green-600/10 text-sm md:text-base uppercase" value={optionA} onChange={(e) => setOptionA(e.target.value)} /></div>
+                       <div><label className="block text-[9px] md:text-[10px] font-black uppercase text-red-600 mb-2 ml-1 italic tracking-widest">Option 2 Label (Optional)</label><input type="text" placeholder="NO" className="w-full bg-red-50 border-2 border-red-100 rounded-2xl p-3 md:p-4 font-bold text-red-900 focus:outline-none focus:ring-4 focus:ring-red-600/10 text-sm md:text-base uppercase" value={optionB} onChange={(e) => setOptionB(e.target.value)} /></div>
+                    </div>
+
                     <div><label className="block text-[9px] md:text-[10px] font-black uppercase text-gray-400 mb-2 ml-1 italic tracking-widest">Context (Optional)</label><textarea rows={2} placeholder="Provide details..." className="w-full bg-blue-50 border-2 border-blue-100 rounded-2xl p-3 md:p-4 font-bold text-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-600/10 resize-none text-sm md:text-base" value={description} onChange={(e) => setDescription(e.target.value)} /></div>
                     <div><label className="block text-[9px] md:text-[10px] font-black uppercase text-gray-400 mb-2 ml-1 italic tracking-widest">Solana CA (Optional - Track Market Cap)</label><input type="text" placeholder="Solana Contract Address" className="w-full bg-blue-50 border-2 border-blue-100 rounded-2xl p-3 md:p-4 font-bold text-blue-900 focus:outline-none focus:ring-4 focus:ring-blue-600/10 text-sm md:text-base" value={contractAddress} onChange={(e) => setContractAddress(e.target.value)} /></div>
                     <div><label className="block text-[9px] md:text-[10px] font-black uppercase text-gray-400 mb-2 ml-1 italic tracking-widest">Proof Asset</label><div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-blue-100 rounded-2xl p-4 md:p-6 flex flex-col items-center justify-center bg-blue-50/50 hover:bg-blue-100 transition-all cursor-pointer relative min-h-[100px] md:min-h-[120px]">{preview ? <img src={preview} className="absolute inset-0 w-full h-full object-cover rounded-2xl opacity-80" /> : <Plus size={32} className="text-blue-300" />}<input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} /></div></div>
