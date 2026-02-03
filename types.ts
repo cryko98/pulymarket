@@ -1,4 +1,7 @@
 
+export type MarketType = 'STANDARD' | 'MCAP_TARGET';
+export type MarketStatus = 'OPEN' | 'RESOLVED_YES' | 'EXPIRED'; // RESOLVED_NO is effectively EXPIRED
+
 export interface PredictionMerket {
   id: string;
   question: string;
@@ -7,9 +10,15 @@ export interface PredictionMerket {
   createdAt: number;
   image?: string;
   description?: string;
-  contractAddress?: string; // Optional Solana CA
-  optionA?: string; // Custom label for "YES" (Green)
-  optionB?: string; // Custom label for "NO" (Red)
+  contractAddress?: string;
+  optionA?: string;
+  optionB?: string;
+  
+  // New fields for MCAP Target markets
+  marketType: MarketType;
+  targetMarketCap?: number; // e.g., 15000000 for 15M
+  expiresAt?: number; // timestamp
+  status: MarketStatus;
 }
 
 export interface MerketComment {
