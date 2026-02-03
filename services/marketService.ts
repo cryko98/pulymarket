@@ -64,12 +64,13 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
     try {
       const { data, error } = await supabase
         .from('markets')
-        .select('id, question, yes_votes, no_votes, created_at, image, description, contract_address, option_a, option_b, market_type, target_market_cap, expires_at, status')
+        .select('id, user_id, question, yes_votes, no_votes, created_at, image, description, contract_address, option_a, option_b, market_type, target_market_cap, expires_at, status')
         .order('created_at', { ascending: false });
       
       if (!error && data) {
         return data.map((item: any) => ({
           id: item.id.toString(),
+          user_id: item.user_id,
           question: item.question,
           yesVotes: parseInt(item.yes_votes || 0),
           noVotes: parseInt(item.no_votes || 0),
@@ -94,9 +95,16 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
 
 export const createMarket = async (marketData: Omit<PredictionMerket, 'id' | 'yesVotes' | 'noVotes' | 'createdAt' | 'status'> & { status?: MarketStatus }): Promise<void> => {
     if (isSupabaseConfigured() && supabase) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            alert("You must be logged in to create a market.");
+            return;
+        }
+
         const { marketType, question, description, image, contractAddress, optionA, optionB, targetMarketCap, expiresAt } = marketData;
         
-        await supabase.from('markets').insert([{
+        const { error } = await supabase.from('markets').insert([{
+            user_id: user.id,
             question,
             description,
             image: image || BRAND_LOGO,
@@ -110,6 +118,12 @@ export const createMarket = async (marketData: Omit<PredictionMerket, 'id' | 'ye
             expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
             status: 'OPEN',
         }]);
+
+        if (error) {
+            console.error("Error creating market:", error);
+            alert(`Failed to create market: ${error.message}`);
+        }
+
     } else {
         console.error("Supabase not configured. Cannot create market.");
         alert("Database connection missing. Cannot deploy market.");
@@ -155,18 +169,24 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO', status: Marke
       return;
   }
 
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+      throw new Error("User not authenticated");
+  }
+
   const previousVote = getUserVote(id);
   if (previousVote === option) return;
 
   try {
     const { error } = await supabase.rpc('vote_market', {
-        p_market_id: parseInt(id),
+        p_market_id: parseInt(id, 10),
         p_vote_type: option,
         p_previous_vote: previousVote || null
     });
 
     if (error) {
         console.error("RPC Error:", error);
+        throw error;
     } else {
         saveUserVote(id, option);
     }
@@ -183,15 +203,29 @@ export const getComments = async (marketId: string): Promise<MerketComment[]> =>
       .from('comments')
       .select('*')
       .eq('market_id', marketId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: true }); // ascending to show oldest first
     if (!error && data) return data;
   }
   return [];
 };
 
-export const postComment = async (marketId: string, username: string, content: string): Promise<void> => {
-  if (!username.trim() || !content.trim()) return;
+export const postComment = async (marketId: string, content: string): Promise<void> => {
+  if (!content.trim()) return;
+
   if (isSupabaseConfigured() && supabase) {
-    await supabase.from('comments').insert([{ market_id: marketId, username, content }]);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !user.email) {
+        throw new Error("User not authenticated or email is missing");
+    }
+    
+    const { error } = await supabase.from('comments').insert([
+        { 
+            market_id: marketId, 
+            user_id: user.id,
+            username: user.email.split('@')[0], // Use part of email as username
+            content 
+        }
+    ]);
+    if (error) throw error;
   }
 };

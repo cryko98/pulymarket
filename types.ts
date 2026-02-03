@@ -4,6 +4,7 @@ export type MarketStatus = 'OPEN' | 'RESOLVED_YES' | 'EXPIRED'; // RESOLVED_NO i
 
 export interface PredictionMerket {
   id: string;
+  user_id?: string;
   question: string;
   yesVotes: number;
   noVotes: number;
@@ -24,6 +25,7 @@ export interface PredictionMerket {
 export interface MerketComment {
   id: string;
   market_id: string;
+  user_id?: string;
   username: string;
   content: string;
   created_at: string;
