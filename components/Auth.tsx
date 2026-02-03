@@ -63,6 +63,7 @@ const Auth: React.FC<AuthProps> = ({ onClose }) => {
           Connect to join the network
         </p>
       </div>
+      {error && <p className="mb-4 text-center text-red-400 text-xs font-bold bg-red-500/10 p-3 rounded-lg border border-red-500/20">{error}</p>}
       <div className="flex flex-col gap-4">
         <button 
           onClick={handlePhantomLogin}
