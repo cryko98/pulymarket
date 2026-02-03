@@ -203,7 +203,6 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
   );
 };
 
-// Fix: Added the missing ChanceIndicator component.
 const ChanceIndicator: React.FC<{ percentage: number }> = ({ percentage }) => {
     const color = percentage >= 50 ? '#22c55e' : '#ef4444'; // green-500, red-500
     const size = 60;
@@ -296,7 +295,24 @@ const CreateMarketModal: React.FC<{ onClose: () => void; onCreated: () => void; 
     const [image, setImage] = useState('');
     const [preview, setPreview] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [ticker, setTicker] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        const fetchTicker = async () => {
+            if (marketType === 'MCAP_TARGET' && contractAddress.length > 32) {
+                try {
+                    const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${contractAddress}`);
+                    const data = await response.json();
+                    if (data.pairs && data.pairs.length > 0) {
+                        setTicker(data.pairs[0].baseToken.symbol);
+                    } else { setTicker(null); }
+                } catch (e) { setTicker(null); }
+            } else { setTicker(null); }
+        };
+        const timeoutId = setTimeout(fetchTicker, 500); // Debounce
+        return () => clearTimeout(timeoutId);
+    }, [contractAddress, marketType]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]; if (!file) return;
@@ -320,9 +336,10 @@ const CreateMarketModal: React.FC<{ onClose: () => void; onCreated: () => void; 
             if (marketType === 'MCAP_TARGET') {
                 if (!contractAddress || !targetMcapStr) { alert("CA and Target MCAP are required."); setLoading(false); return; }
                 const targetMarketCap = parseMcapInput(targetMcapStr);
+                const questionText = `Will $${ticker || 'this asset'} reach a $${targetMcapStr.toUpperCase()} market cap within ${timeframe} hours?`;
                 marketData = {
                     marketType: 'MCAP_TARGET',
-                    question: `Will this asset reach a $${targetMcapStr.toUpperCase()} market cap within ${timeframe} hours?`,
+                    question: questionText,
                     description: description || `Tracking contract: ${contractAddress}`,
                     contractAddress,
                     targetMarketCap,
@@ -351,7 +368,13 @@ const CreateMarketModal: React.FC<{ onClose: () => void; onCreated: () => void; 
                         <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Question</label><input required type="text" placeholder="e.g., Will SOL flip ETH this cycle?" className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-medium text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600" value={question} onChange={(e) => setQuestion(e.target.value)} /></div>
                     ) : (
                         <>
-                          <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Solana Contract Address</label><input required type="text" placeholder="Enter Token CA..." className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-mono text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600" value={contractAddress} onChange={(e) => setContractAddress(e.target.value)} /></div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Solana Contract Address</label>
+                            <div className="relative">
+                                <input required type="text" placeholder="Enter Token CA..." className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-mono text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600 pr-20" value={contractAddress} onChange={(e) => setContractAddress(e.target.value)} />
+                                {ticker && <span className="absolute right-4 top-1/2 -translate-y-1/2 bg-blue-500/20 text-blue-300 text-xs font-bold px-2 py-0.5 rounded-md border border-blue-500/30">${ticker}</span>}
+                            </div>
+                          </div>
                           <div className="grid grid-cols-2 gap-4">
                               <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Target MCAP</label><input required type="text" placeholder="e.g., 15M, 250K" className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-mono text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600" value={targetMcapStr} onChange={(e) => setTargetMcapStr(e.target.value)} /></div>
                               <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Timeframe</label><select value={timeframe} onChange={(e)=>setTimeframe(Number(e.target.value))} className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-mono text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600"><option value={24}>24 Hours</option><option value={72}>3 Days</option><option value={168}>7 Days</option></select></div>
@@ -374,7 +397,8 @@ const PredictionMarket: React.FC = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<'top' | 'new' | 'mcap' | 'trending'>('top');
+  const [activeCategory, setActiveCategory] = useState<'general' | 'mcap'>('general');
+  const [activeSort, setActiveSort] = useState<'top' | 'new' | 'trending'>('top');
 
   const refreshMarkets = async () => {
       setLoading(true);
@@ -401,7 +425,10 @@ const PredictionMarket: React.FC = () => {
     try {
         await voteMerket(id, option, status);
         const updated = await getMerkets(); setMerkets(updated);
-        if (selectedMerket?.id === id) setSelectedMerket(updated.find(m => m.id === id) || null);
+        if (selectedMerket?.id === id) {
+            const newSelected = updated.find(m => m.id === id) || null;
+            setSelectedMerket(newSelected);
+        }
     } catch (e) { console.error("Vote failed:", e); } finally { setActionLoading(false); }
   };
 
@@ -413,33 +440,47 @@ const PredictionMarket: React.FC = () => {
   };
 
   const sortedMerkets = useMemo(() => {
-    const data = [...merkets];
-    if (activeFilter === 'mcap') return data.filter(m => m.marketType === 'MCAP_TARGET').sort((a,b) => (b.status === 'OPEN' ? 1 : -1) - (a.status === 'OPEN' ? 1 : -1) || (b.expiresAt || 0) - (a.expiresAt || 0));
-    const standardMarkets = data.filter(m => m.marketType !== 'MCAP_TARGET');
-    switch (activeFilter) {
-        case 'top': return standardMarkets.sort((a, b) => (b.yesVotes + b.noVotes) - (a.yesVotes + a.noVotes));
-        case 'new': return standardMarkets.sort((a, b) => b.createdAt - a.createdAt);
-        case 'trending': return standardMarkets.sort((a, b) => ((b.yesVotes + b.noVotes) * (Date.now() - b.createdAt < 86400000 ? 2 : 1)) - ((a.yesVotes + a.noVotes) * (Date.now() - a.createdAt < 86400000 ? 2 : 1)));
-        default: return standardMarkets;
+    const categoryMarkets = merkets.filter(m => 
+      activeCategory === 'mcap' ? m.marketType === 'MCAP_TARGET' : m.marketType === 'STANDARD'
+    );
+
+    switch (activeSort) {
+        case 'top': 
+            return categoryMarkets.sort((a, b) => (b.yesVotes + b.noVotes) - (a.yesVotes + a.noVotes));
+        case 'new': 
+            return categoryMarkets.sort((a, b) => b.createdAt - a.createdAt);
+        case 'trending': 
+            return categoryMarkets.sort((a, b) => {
+                const scoreA = (a.yesVotes + a.noVotes) / Math.pow((Date.now() - a.createdAt) / 3600000, 1.8);
+                const scoreB = (b.yesVotes + b.noVotes) / Math.pow((Date.now() - b.createdAt) / 3600000, 1.8);
+                return scoreB - scoreA;
+            });
+        default: return categoryMarkets;
     }
-  }, [merkets, activeFilter]);
+  }, [merkets, activeCategory, activeSort]);
   
   return (
     <section id="merkets">
       <div className="container mx-auto">
-        <div className="flex flex-wrap items-center gap-2 mb-8 md:mb-12 pb-5 border-b border-slate-800">
-            <div className="flex items-center bg-slate-950 p-1 rounded-2xl border border-slate-800 shadow-lg overflow-x-auto no-scrollbar">
-                <button onClick={() => setActiveFilter('top')} className={`px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeFilter === 'top' ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:text-white'}`}>Top</button>
-                <button onClick={() => setActiveFilter('new')} className={`px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeFilter === 'new' ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:text-white'}`}>New</button>
-                <button onClick={() => setActiveFilter('mcap')} className={`px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeFilter === 'mcap' ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:text-white'}`}>MCAP Targets</button>
-                <button onClick={() => setActiveFilter('trending')} className={`px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeFilter === 'trending' ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:text-white'}`}>Trending</button>
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8 md:mb-12 pb-5 border-b border-slate-800">
+            <div className="flex items-center bg-slate-950 p-1 rounded-2xl border border-slate-800 shadow-lg w-full md:w-auto">
+                <button onClick={() => setActiveCategory('general')} className={`flex-1 md:flex-none px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeCategory === 'general' ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:text-white'}`}>General Markets</button>
+                <button onClick={() => setActiveCategory('mcap')} className={`flex-1 md:flex-none px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeCategory === 'mcap' ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:text-white'}`}>MCAP Targets</button>
             </div>
-            <div className="ml-auto">
-                <button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-2 px-4 md:px-6 py-3 bg-blue-500 text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-blue-600 transition-all shadow-2xl shadow-blue-500/20 border border-blue-400/20">
-                    <Plus size={18} /> <span className="hidden md:inline">New Market</span><span className="md:hidden">New</span>
+
+            <div className="flex items-center gap-2 w-full md:w-auto">
+                <div className="flex items-center bg-slate-950 p-1 rounded-2xl border border-slate-800 shadow-lg flex-grow">
+                    <button onClick={() => setActiveSort('top')} className={`flex-1 px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all ${activeSort === 'top' ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>Top</button>
+                    <button onClick={() => setActiveSort('new')} className={`flex-1 px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all ${activeSort === 'new' ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>New</button>
+                    <button onClick={() => setActiveSort('trending')} className={`flex-1 px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all ${activeSort === 'trending' ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>Trending</button>
+                </div>
+                
+                <button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-blue-600 transition-all shadow-2xl shadow-blue-500/20 border border-blue-400/20 shrink-0">
+                    <Plus size={16} /> <span className="hidden md:inline">New Market</span>
                 </button>
             </div>
         </div>
+
         {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4"><Loader2 className="animate-spin text-blue-500" size={56} /><span className="font-bold text-[10px] text-slate-500 uppercase tracking-widest">Syncing Terminal...</span></div>
         ) : (
