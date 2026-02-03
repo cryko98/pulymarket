@@ -88,7 +88,11 @@ export const signInWithPhantom = async (): Promise<void> => {
             // Sign-up was successful, set a flag for the UI to know this is a new user
             localStorage.setItem('isNewUser', 'true');
         } else {
-            // A different sign-in error occurred
+            // A different sign-in error occurred.
+            // Check for the specific "Email not confirmed" error and provide a helpful message.
+            if (signInError.message.includes('Email not confirmed')) {
+              throw new Error("Login Failed: 'Email Confirmation' might be enabled. Please disable it in your Supabase project's settings to allow wallet logins.");
+            }
             throw new Error(`Sign-in failed: ${signInError.message}`);
         }
     }
