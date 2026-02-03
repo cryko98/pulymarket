@@ -1,9 +1,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { X, Loader2, LogIn, UserPlus, Mail, ArrowLeft } from 'lucide-react';
-import { signInWithPhantom } from '../services/walletService';
-import { PhantomIcon } from './wallet/PhantomIcon';
+import { X, Loader2, LogIn, UserPlus } from 'lucide-react';
 
 interface AuthProps {
   onClose: () => void;
@@ -13,7 +11,6 @@ const Auth: React.FC<AuthProps> = ({ onClose }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [phantomLoading, setPhantomLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -33,24 +30,10 @@ const Auth: React.FC<AuthProps> = ({ onClose }) => {
         if (error) throw error;
         onClose();
       }
-// FIX: Corrected the try-catch-finally block syntax.
     } catch (error: any) {
       setError(error.error_description || error.message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handlePhantomLogin = async () => {
-    setPhantomLoading(true);
-    setError(null);
-    try {
-      await signInWithPhantom();
-      onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to connect wallet.');
-    } finally {
-      setPhantomLoading(false);
     }
   };
 
@@ -64,7 +47,7 @@ const Auth: React.FC<AuthProps> = ({ onClose }) => {
         <div className="mb-8 text-center">
           <h2 className="text-4xl font-bold tracking-tighter">Terminal Access</h2>
           <p className="text-blue-400 font-bold uppercase text-xs tracking-widest mt-1">
-            Connect to join the network
+            Connect with your Email
           </p>
         </div>
 
@@ -72,21 +55,6 @@ const Auth: React.FC<AuthProps> = ({ onClose }) => {
         {message && <p className="text-center text-green-400 text-xs font-bold bg-green-500/10 p-3 rounded-lg border border-green-500/20">{message}</p>}
 
         <div className="flex flex-col gap-4">
-          <button 
-            onClick={handlePhantomLogin}
-            disabled={phantomLoading}
-            className="w-full flex items-center justify-center gap-3 bg-[#512da8] text-white font-bold py-4 rounded-2xl text-lg hover:bg-[#4527a0] transition-all disabled:opacity-50 uppercase tracking-wider shadow-lg"
-          >
-            {phantomLoading ? <Loader2 className="animate-spin" /> : <><PhantomIcon /> Connect Phantom</>}
-          </button>
-          
-          <div className="flex items-center gap-4">
-              <hr className="flex-1 border-slate-700" />
-              <span className="text-slate-500 font-bold text-xs uppercase">OR</span>
-              <hr className="flex-1 border-slate-700" />
-          </div>
-
-          <div className="flex flex-col gap-4">
             <div>
               <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Email</label>
               <input 
@@ -126,7 +94,6 @@ const Auth: React.FC<AuthProps> = ({ onClose }) => {
                 </button>
             </div>
           </div>
-        </div>
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import UsernameSetupModal from './UsernameSetup';
 import { supabase } from '../services/supabaseClient';
 import type { Session } from '@supabase/supabase-js';
 import { PhantomIcon } from './wallet/PhantomIcon';
+import { signInWithPhantom } from '../services/walletService';
 
 Chart.register(...registerables);
 
@@ -188,7 +189,14 @@ const CreateMarketModal: React.FC<{ onClose: () => void; onCreated: () => void; 
     return ( <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4"> <div className="bg-slate-900 w-full max-w-xl rounded-3xl p-6 md:p-10 relative shadow-2xl text-white border border-slate-700 max-h-[90vh] overflow-y-auto custom-scroll"> <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-slate-800 text-slate-300 rounded-full border border-slate-700"><X size={20} /></button> <div className="mb-8"><h2 className="text-4xl font-bold tracking-tighter">New Market</h2><p className="text-blue-400 font-bold uppercase text-xs tracking-widest mt-1">Deploy terminal signal</p></div> <div className="flex bg-slate-800 p-1 rounded-full mb-6 border border-slate-700"><button onClick={()=>setMarketType('STANDARD')} className={`flex-1 py-2 rounded-full text-sm font-bold uppercase ${marketType==='STANDARD'?'bg-blue-600 text-white':'text-slate-400'}`}>Standard</button><button onClick={()=>setMarketType('MCAP_TARGET')} className={`flex-1 py-2 rounded-full text-sm font-bold uppercase ${marketType==='MCAP_TARGET'?'bg-blue-600 text-white':'text-slate-400'}`}>MCAP Target</button></div> <form onSubmit={handleSubmit} className="space-y-6"> {marketType === 'STANDARD' ? ( <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Question</label><input required type="text" placeholder="e.g., Will SOL flip ETH this cycle?" className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-medium text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600" value={question} onChange={(e) => setQuestion(e.target.value)} /></div> ) : ( <> <div> <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Solana Contract Address</label> <div className="relative"> <input required type="text" placeholder="Enter Token CA..." className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-mono text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600 pr-20" value={contractAddress} onChange={(e) => setContractAddress(e.target.value)} /> {ticker && <span className="absolute right-4 top-1/2 -translate-y-1/2 bg-blue-500/20 text-blue-300 text-xs font-bold px-2 py-0.5 rounded-md border border-blue-500/30">${ticker}</span>} </div> </div> <div className="grid grid-cols-2 gap-4"> <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Target MCAP</label><input required type="text" placeholder="e.g., 15M, 250K" className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-mono text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600" value={targetMcapStr} onChange={(e) => setTargetMcapStr(e.target.value)} /></div> <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Timeframe</label><select value={timeframe} onChange={(e)=>setTimeframe(Number(e.target.value))} className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-mono text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600"><option value={24}>24 Hours</option><option value={72}>3 Days</option><option value={168}>7 Days</option></select></div> </div> </> )} <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Context (Optional)</label><textarea rows={2} placeholder="Provide details..." className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-medium text-slate-300 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600 resize-none" value={description} onChange={(e) => setDescription(e.target.value)} /></div> <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Image</label><div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center bg-slate-800/50 hover:bg-slate-800/80 transition-all cursor-pointer relative min-h-[120px]">{preview ? <img src={preview} className="absolute inset-0 w-full h-full object-cover rounded-2xl opacity-80" /> : <Plus size={32} className="text-slate-600" />}<input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} /></div></div> <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-bold py-5 rounded-2xl text-xl hover:bg-blue-700 transition-all disabled:opacity-50 uppercase tracking-wider shadow-lg shadow-blue-500/20">{loading ? <Loader2 className="animate-spin mx-auto" /> : "Initiate Terminal"}</button> </form> </div> </div> );
 };
 
-const AuthBar: React.FC<{ session: Session | null; profile: { username: string } | null; onLogin: () => void; onEditProfile: () => void; }> = ({ session, profile, onLogin, onEditProfile }) => {
+const AuthBar: React.FC<{
+    session: Session | null;
+    profile: { username: string } | null;
+    onEmailLogin: () => void;
+    onWalletLogin: () => void;
+    onEditProfile: () => void;
+    walletLoading: boolean;
+}> = ({ session, profile, onEmailLogin, onWalletLogin, onEditProfile, walletLoading }) => {
     const handleLogout = async () => { await supabase.auth.signOut(); };
 
     if (session) {
@@ -209,7 +217,20 @@ const AuthBar: React.FC<{ session: Session | null; profile: { username: string }
             </div>
         );
     }
-    return ( <button onClick={onLogin} className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-slate-700 transition-all border border-slate-700 shadow-lg"> <User size={16} /> Login / Sign Up </button> );
+    return (
+        <div className="flex items-center gap-2">
+            <button 
+                onClick={onWalletLogin} 
+                disabled={walletLoading}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#512da8] text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-[#4527a0] transition-all border border-slate-700 shadow-lg disabled:opacity-50"
+            >
+                {walletLoading ? <Loader2 className="animate-spin" size={16}/> : 'Connect Phantom'}
+            </button>
+            <button onClick={onEmailLogin} className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-slate-700 transition-all border border-slate-700 shadow-lg">
+                <User size={16} /> Login / Sign Up
+            </button>
+        </div>
+    );
 };
 
 
@@ -225,6 +246,8 @@ const PredictionMarket: React.FC = () => {
   const [profile, setProfile] = useState<{ username: string } | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUsernameSetup, setShowUsernameSetup] = useState(false);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletError, setWalletError] = useState<string|null>(null);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -275,6 +298,19 @@ const PredictionMarket: React.FC = () => {
     } catch (e) { console.error("Vote failed:", e); alert("Vote failed. Please ensure you are logged in."); setShowAuthModal(true); } finally { setActionLoading(false); }
   };
 
+  const handleWalletLogin = async () => {
+    setWalletLoading(true);
+    setWalletError(null);
+    try {
+        await signInWithPhantom();
+        // onAuthStateChange will handle UI updates
+    } catch (err: any) {
+        setWalletError(err.message || 'Failed to connect wallet.');
+    } finally {
+        setWalletLoading(false);
+    }
+  };
+
   const handleMarketUpdate = (updatedMarket: MerketType) => { setMerkets(prev => prev.map(m => m.id === updatedMarket.id ? updatedMarket : m)); if (selectedMerket?.id === updatedMarket.id) { setSelectedMerket(updatedMarket); } };
   
   const handleCreateMarketOpen = () => { if (!session) { setShowAuthModal(true); } else { setIsCreateOpen(true); } };
@@ -316,8 +352,10 @@ const PredictionMarket: React.FC = () => {
                 <Info size={16} className="text-blue-500 shrink-0" />
                 <span className="font-bold">To create a market or vote on an outcome, please log in.</span>
             </div>
-            <AuthBar session={session} profile={profile} onLogin={() => setShowAuthModal(true)} onEditProfile={() => setShowUsernameSetup(true)} />
+            <AuthBar session={session} profile={profile} onEmailLogin={() => setShowAuthModal(true)} onWalletLogin={handleWalletLogin} onEditProfile={() => setShowUsernameSetup(true)} walletLoading={walletLoading} />
         </div>
+        
+        {walletError && <div className="mb-4 text-center text-red-400 text-xs font-bold bg-red-500/10 p-3 rounded-lg border border-red-500/20">{walletError}</div>}
 
         {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4"><Loader2 className="animate-spin text-blue-500" size={56} /><span className="font-bold text-[10px] text-slate-500 uppercase tracking-widest">Syncing Terminal...</span></div>

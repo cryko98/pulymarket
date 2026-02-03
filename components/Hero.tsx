@@ -6,7 +6,7 @@ interface HeroProps {
 }
 
 const Hero: React.FC<HeroProps> = ({ onStart }) => {
-  const heroImageUrl = "https://pbs.twimg.com/media/G8TVwV2XgAca-jL?format=jpg&name=large";
+  const heroImageUrl = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
 
   return (
     <section className="relative pt-24 pb-12 md:pt-32 md:pb-20">
@@ -14,11 +14,11 @@ const Hero: React.FC<HeroProps> = ({ onStart }) => {
       <div className="container mx-auto px-4 relative z-10">
         
         {/* Main Hero Image */}
-        <div className="w-56 md:w-72 mx-auto mb-8 md:mb-12 transform hover:scale-[1.05] transition-transform duration-700">
+        <div className="w-56 h-56 md:w-72 md:h-72 mx-auto mb-8 md:mb-12 transform hover:scale-[1.05] transition-transform duration-700 p-4 rounded-full border-4 border-slate-700 bg-slate-800 drop-shadow-[0_0_60px_rgba(59,130,246,0.4)]">
             <img 
                 src={heroImageUrl} 
                 alt="Polymarket Hero Art" 
-                className="w-full h-auto block drop-shadow-[0_0_60px_rgba(59,130,246,0.4)] rounded-3xl border-4 border-slate-700 bg-slate-800"
+                className="w-full h-full object-contain"
             />
         </div>
 
