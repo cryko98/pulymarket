@@ -2,7 +2,10 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { getMerkets, voteMerket, getUserVote, createMarket, getComments, postComment, fetchMarketCap } from '../services/marketService';
 import { PredictionMerket as MerketType, MerketComment } from '../types';
-import { Loader2, X, Plus, MessageSquare, Star, ChevronUp, ChevronDown, Send, BarChart } from 'lucide-react';
+import { Loader2, X, Plus, MessageSquare, Star, Send, BarChart } from 'lucide-react';
+import { Chart, registerables } from 'https://esm.sh/chart.js';
+Chart.register(...registerables);
+
 
 const BRAND_LOGO = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
 
@@ -14,84 +17,112 @@ const XIcon = ({ size = 16, className = "" }) => (
   </svg>
 );
 
-const TrendGraph: React.FC<{ yesProb: number; marketId: string; height?: number }> = ({ yesProb, marketId, height = 200 }) => {
-  const noProb = 100 - yesProb;
-  
-  const points = useMemo(() => {
-    const yesP = [];
-    const noP = [];
-    const segments = 60;
-    const width = 600;
-    
-    let seed = marketId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const seededRandom = () => {
-      seed = (seed * 9301 + 49297) % 233280;
-      return seed / 233280;
-    };
+const MarketChart: React.FC<{ yesProb: number; marketId: string; optionA: string; optionB: string; }> = ({ yesProb, marketId, optionA, optionB }) => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const chartRef = useRef<Chart | null>(null);
 
-    const minY = 0;
-    const maxY = 100;
-    const range = maxY - minY;
+    useEffect(() => {
+        if (!canvasRef.current) return;
+        const ctx = canvasRef.current.getContext('2d');
+        if (!ctx) return;
 
-    const mapValueToY = (val: number) => {
-      const normalized = (val - minY) / range;
-      return height - (normalized * height);
-    };
+        // Destroy previous chart instance if it exists
+        if (chartRef.current) {
+            chartRef.current.destroy();
+        }
 
-    for (let i = 0; i <= segments; i++) {
-      const x = (i / segments) * width;
-      const progress = i / segments;
-      
-      const startValueYes = 50;
-      const startValueNo = 50;
-      
-      const baseYes = startValueYes + (yesProb - startValueYes) * progress;
-      const baseNo = startValueNo + (noProb - startValueNo) * progress;
-      
-      const noiseIntensity = (1 - progress) * 12;
-      const currentYes = i === segments ? yesProb : baseYes + (seededRandom() - 0.5) * noiseIntensity;
-      const currentNo = i === segments ? noProb : baseNo + (seededRandom() - 0.5) * noiseIntensity;
-
-      yesP.push(`${x},${mapValueToY(currentYes)}`);
-      noP.push(`${x},${mapValueToY(currentNo)}`);
-    }
-    
-    return { yes: yesP.join(' '), no: noP.join(' '), mapValueToY };
-  }, [yesProb, height, marketId]);
-
-  const labels = [100, 80, 60, 40, 20, 0];
-
-  return (
-    <div className="w-full relative flex bg-slate-950 rounded-xl border border-slate-800 my-6 overflow-hidden shadow-2xl group/graph" style={{ height: `${height}px` }}>
-      <div className="flex-1 relative border-r border-slate-800 overflow-hidden">
-        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-          {labels.map((_, i) => (
-            <div key={i} className="w-full border-t border-slate-800"></div>
-          ))}
-        </div>
+        let seed = marketId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        const seededRandom = () => {
+            seed = (seed * 9301 + 49297) % 233280;
+            return seed / 233280;
+        };
         
-        <svg className="w-full h-full" viewBox={`0 0 600 ${height}`} preserveAspectRatio="none">
-          <polyline fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={points.no} className="transition-all duration-700" />
-          <polyline fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={points.yes} className="transition-all duration-700" />
-          <circle cx="600" cy={points.mapValueToY(yesProb)} r="6" fill="#22c55e" className="transition-all duration-700 shadow-lg" />
-          <circle cx="600" cy={points.mapValueToY(noProb)} r="6" fill="#ef4444" className="transition-all duration-700 shadow-lg" />
-        </svg>
+        const dataPoints = 100;
+        const labels = Array.from({ length: dataPoints }, (_, i) => `T-${dataPoints - i}`);
+        const data = [];
+        const startValue = 50;
+        
+        for (let i = 0; i < dataPoints; i++) {
+            const progress = i / (dataPoints - 1);
+            const value = startValue + (yesProb - startValue) * progress;
+            const noise = (seededRandom() - 0.5) * (1 - progress) * 20; // More noise at the start
+            const clampedValue = Math.max(0, Math.min(100, value + noise));
+            data.push(i === dataPoints - 1 ? yesProb : clampedValue);
+        }
 
-        <div className="absolute bottom-2 left-3 bg-black/60 px-3 py-1 rounded-md text-[9px] font-bold text-slate-400 uppercase tracking-widest border border-slate-700">
-          SOURCE: POLY-MARKET.SITE
+        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, 'rgba(34, 197, 94, 0.3)');
+        gradient.addColorStop(1, 'rgba(34, 197, 94, 0)');
+
+        chartRef.current = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: `${optionA} Probability`,
+                    data: data,
+                    borderColor: '#22c55e',
+                    borderWidth: 2.5,
+                    pointRadius: 0,
+                    tension: 0.4,
+                    fill: true,
+                    backgroundColor: gradient,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(5, 12, 24, 0.8)',
+                        borderColor: '#1f2937',
+                        borderWidth: 1,
+                        titleFont: { weight: 'bold' },
+                        bodyFont: { weight: 'bold' },
+                        padding: 10,
+                        callbacks: {
+                            label: (context) => `${context.dataset.label}: ${context.parsed.y.toFixed(2)}%`
+                        }
+                    }
+                },
+                scales: {
+                    x: { display: false },
+                    y: {
+                        min: 0,
+                        max: 100,
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: {
+                            color: '#6b7280',
+                            font: { weight: 'bold' },
+                            callback: (value) => `${value}%`
+                        }
+                    }
+                }
+            }
+        });
+
+        // Cleanup function
+        return () => {
+            if (chartRef.current) {
+                chartRef.current.destroy();
+            }
+        };
+    }, [yesProb, marketId, optionA]);
+
+    return (
+        <div className="w-full h-[250px] bg-slate-950 rounded-xl border border-slate-800 p-2 my-6 shadow-2xl relative">
+            <canvas ref={canvasRef}></canvas>
+             <div className="absolute bottom-2 left-3 bg-black/60 px-3 py-1 rounded-md text-[9px] font-bold text-slate-400 uppercase tracking-widest border border-slate-700 pointer-events-none">
+                SOURCE: POLY-ORACLE v2
+            </div>
         </div>
-      </div>
-
-      <div className="w-10 md:w-14 flex flex-col justify-between items-center py-0.5 text-[9px] md:text-[10px] font-bold text-slate-500 bg-black/40">
-        {labels.map((val) => (
-          <div key={val} className="flex-1 flex items-center justify-center border-b border-slate-800 w-full last:border-b-0">
-            {val}%
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+    );
 };
+
 
 const ChanceIndicator: React.FC<{ percentage: number }> = ({ percentage }) => {
   const radius = 26;
@@ -205,7 +236,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
                   <div className="h-full bg-green-600 transition-all duration-1000 shadow-[0_0_15px_rgba(34,197,94,0.4)]" style={{ width: `${yesProb}%` }} />
                   <div className="h-full bg-red-600 transition-all duration-1000 shadow-[0_0_15px_rgba(239,68,68,0.4)]" style={{ width: `${100-yesProb}%` }} />
                </div>
-               <TrendGraph yesProb={yesProb} marketId={merket.id} height={200} />
+               <MarketChart yesProb={yesProb} marketId={merket.id} optionA={labelA} optionB={labelB} />
             </div>
             {merket.description && (
               <p className="text-sm md:text-lg font-medium text-slate-400 mb-8 md:mb-12 px-2 leading-relaxed">"{merket.description}"</p>
