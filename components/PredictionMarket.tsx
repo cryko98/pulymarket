@@ -7,6 +7,7 @@ import { Chart, registerables } from 'https://esm.sh/chart.js';
 import Auth from './Auth';
 import { supabase } from '../services/supabaseClient';
 import type { Session } from '@supabase/supabase-js';
+import { PhantomIcon } from './wallet/PhantomIcon';
 
 Chart.register(...registerables);
 
@@ -188,8 +189,29 @@ const CreateMarketModal: React.FC<{ onClose: () => void; onCreated: () => void; 
 
 const AuthBar: React.FC<{ session: Session | null; onLogin: () => void; }> = ({ session, onLogin }) => {
     const handleLogout = async () => { await supabase.auth.signOut(); };
+
     if (session) {
-        return ( <div className="flex items-center gap-3"> <div className="text-right"> <div className="text-xs font-bold text-slate-100">{session.user.email}</div> <div className="text-[9px] text-blue-400 uppercase tracking-widest font-bold">Authenticated</div> </div> <button onClick={handleLogout} className="p-2.5 bg-slate-800 border border-slate-700 rounded-full hover:bg-red-500/20 hover:border-red-500 transition-colors"><LogOut size={16} /></button> </div> );
+        const isPhantomUser = session.user.email?.endsWith('@phantom.app');
+        const displayIdentifier = isPhantomUser 
+            ? session.user.email.split('@')[0]
+            : session.user.email;
+        
+        const truncatedIdentifier = isPhantomUser
+            ? `${displayIdentifier.slice(0, 4)}...${displayIdentifier.slice(-4)}`
+            : displayIdentifier;
+
+        return (
+            <div className="flex items-center gap-3">
+                <div className="text-right">
+                    <div className="text-xs font-bold text-slate-100 flex items-center gap-2">
+                        {isPhantomUser && <PhantomIcon size={14} />}
+                        {truncatedIdentifier}
+                    </div>
+                    <div className="text-[9px] text-blue-400 uppercase tracking-widest font-bold">Authenticated</div>
+                </div>
+                <button onClick={handleLogout} title="Logout" className="p-2.5 bg-slate-800 border border-slate-700 rounded-full hover:bg-red-500/20 hover:border-red-500 transition-colors"><LogOut size={16} /></button>
+            </div>
+        );
     }
     return ( <button onClick={onLogin} className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-slate-700 transition-all border border-slate-700 shadow-lg"> <User size={16} /> Login / Sign Up </button> );
 };

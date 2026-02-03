@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { X, Loader2 } from 'lucide-react';
+import { signInWithPhantom } from '../services/walletService';
+import { PhantomIcon } from './wallet/PhantomIcon';
 
 interface AuthProps {
   onClose: () => void;
@@ -12,6 +14,7 @@ const Auth: React.FC<AuthProps> = ({ onClose }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [phantomLoading, setPhantomLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -38,6 +41,19 @@ const Auth: React.FC<AuthProps> = ({ onClose }) => {
     }
   };
 
+  const handlePhantomLogin = async () => {
+    setPhantomLoading(true);
+    setError(null);
+    try {
+      await signInWithPhantom();
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Failed to connect wallet.');
+    } finally {
+      setPhantomLoading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4">
       <div className="bg-slate-900 w-full max-w-sm rounded-3xl p-6 md:p-10 relative shadow-2xl text-white border border-slate-700">
@@ -52,16 +68,32 @@ const Auth: React.FC<AuthProps> = ({ onClose }) => {
           </p>
         </div>
 
-        <div className="flex bg-slate-800 p-1 rounded-full mb-6 border border-slate-700">
-          <button onClick={() => setIsSignUp(false)} className={`flex-1 py-2 rounded-full text-sm font-bold uppercase ${!isSignUp ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>
-            Sign In
-          </button>
-          <button onClick={() => setIsSignUp(true)} className={`flex-1 py-2 rounded-full text-sm font-bold uppercase ${isSignUp ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>
-            Sign Up
-          </button>
+        <div className="flex flex-col gap-6">
+            <button 
+              onClick={handlePhantomLogin}
+              disabled={phantomLoading}
+              className="w-full flex items-center justify-center gap-3 bg-[#512da8] text-white font-bold py-4 rounded-2xl text-lg hover:bg-[#4527a0] transition-all disabled:opacity-50 uppercase tracking-wider shadow-lg"
+            >
+              {phantomLoading ? <Loader2 className="animate-spin" /> : <><PhantomIcon /> Connect Phantom</>}
+            </button>
+
+            <div className="flex items-center gap-4">
+                <hr className="flex-1 border-slate-700" />
+                <span className="text-slate-500 font-bold text-xs uppercase">OR</span>
+                <hr className="flex-1 border-slate-700" />
+            </div>
+
+            <div className="flex bg-slate-800 p-1 rounded-full border border-slate-700">
+                <button onClick={() => setIsSignUp(false)} className={`flex-1 py-2 rounded-full text-sm font-bold uppercase ${!isSignUp ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>
+                    Sign In
+                </button>
+                <button onClick={() => setIsSignUp(true)} className={`flex-1 py-2 rounded-full text-sm font-bold uppercase ${isSignUp ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>
+                    Sign Up
+                </button>
+            </div>
         </div>
 
-        <form onSubmit={handleAuth} className="space-y-6">
+        <form onSubmit={handleAuth} className="space-y-6 mt-6">
           <div>
             <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Email</label>
             <input 
