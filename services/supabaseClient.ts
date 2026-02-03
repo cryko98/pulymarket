@@ -16,3 +16,12 @@ export const supabase = (SUPABASE_URL && SUPABASE_ANON_KEY)
   : null;
 
 export const isSupabaseConfigured = () => !!supabase;
+
+// Developer-friendly warning for missing configuration
+if (!isSupabaseConfigured()) {
+  console.warn(
+    "Supabase configuration is missing. " +
+    "Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment. " +
+    "The app will run in a limited mode, and database features (login, voting, etc.) will be disabled."
+  );
+}

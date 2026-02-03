@@ -12,7 +12,7 @@ declare global {
 }
 
 /**
- * Connects to the user's Phantom wallet.
+ * Connects to the user's Phantom wallet, handling existing connections gracefully.
  * @returns {Promise<string>} The user's public key as a string.
  * @throws {Error} If Phantom wallet is not found or connection is rejected.
  */
@@ -20,13 +20,21 @@ export const connectPhantomWallet = async (): Promise<string> => {
   const provider = window.phantom?.solana;
   
   if (!provider || !provider.isPhantom) {
-    throw new Error("Phantom wallet not found! Please install it from phantom.app");
+    // For better user experience, open the Phantom website if the wallet is not found.
+    window.open('https://phantom.app/', '_blank');
+    throw new Error("Phantom wallet not found! Please install it.");
+  }
+
+  // KEY FIX: If the wallet is already connected, return the public key directly.
+  // This handles cases where the user has previously approved the connection
+  // and the popup doesn't need to appear again, fixing the "nothing happens" issue.
+  if (provider.isConnected && provider.publicKey) {
+    return provider.publicKey.toString();
   }
 
   try {
-    // The `connect` method will prompt the user to connect their wallet.
+    // If not connected, request a connection. This will open the popup.
     const response = await provider.connect();
-    // On a successful connection, the response will include the user's public key.
     return response.publicKey.toString();
   } catch (err) {
     // This block will catch any errors, including when the user rejects the connection request.
@@ -47,6 +55,12 @@ export const connectPhantomWallet = async (): Promise<string> => {
  * @throws {Error} If any step of the process fails.
  */
 export const signInWithPhantom = async (): Promise<void> => {
+    // CRITICAL FIX: Check if Supabase is configured before attempting to use it.
+    // This prevents a crash and provides a clear error to the user if env vars are missing.
+    if (!supabase) {
+        throw new Error("Database connection is not configured. Please contact the site administrator.");
+    }
+
     const publicKey = await connectPhantomWallet();
     if (!publicKey) throw new Error("Could not get public key from wallet.");
 
