@@ -201,10 +201,10 @@ export const getComments = async (marketId: string): Promise<MerketComment[]> =>
   if (isSupabaseConfigured() && supabase) {
     const { data, error } = await supabase
       .from('comments')
-      .select('*')
+      .select('*, profiles(username)')
       .eq('market_id', marketId)
-      .order('created_at', { ascending: true }); // ascending to show oldest first
-    if (!error && data) return data;
+      .order('created_at', { ascending: true });
+    if (!error && data) return data as MerketComment[];
   }
   return [];
 };
@@ -214,18 +214,35 @@ export const postComment = async (marketId: string, content: string): Promise<vo
 
   if (isSupabaseConfigured() && supabase) {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !user.email) {
-        throw new Error("User not authenticated or email is missing");
+    if (!user) {
+        throw new Error("User not authenticated");
     }
     
     const { error } = await supabase.from('comments').insert([
         { 
             market_id: marketId, 
             user_id: user.id,
-            username: user.email.split('@')[0], // Use part of email as username
             content 
         }
     ]);
     if (error) throw error;
   }
+};
+
+export const getProfile = async () => {
+    if (!supabase) return null;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('id', user.id)
+        .single();
+    
+    if (error && error.code !== 'PGRST116') { // Ignore 'exact one row' error for new users
+      console.error("Error fetching profile", error);
+      return null;
+    }
+    return data;
 };

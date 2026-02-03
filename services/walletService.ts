@@ -64,7 +64,8 @@ export const signInWithPhantom = async (): Promise<void> => {
                 // If sign-up also fails, throw that error
                 throw new Error(`Sign-up failed: ${signUpError.message}`);
             }
-            // Sign-up was successful (and user is logged in if email confirmation is off)
+            // Sign-up was successful, set a flag for the UI to know this is a new user
+            localStorage.setItem('isNewUser', 'true');
         } else {
             // A different sign-in error occurred
             throw new Error(`Sign-in failed: ${signInError.message}`);

@@ -25,10 +25,12 @@ export interface PredictionMerket {
 export interface MerketComment {
   id: string;
   market_id: string;
-  user_id?: string;
-  username: string;
+  user_id: string;
   content: string;
   created_at: string;
+  profiles: {
+    username: string;
+  } | null;
 }
 
 export type VoteOption = 'YES' | 'NO';
