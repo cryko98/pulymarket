@@ -1,5 +1,5 @@
 
--- ### POLYMARKET SUPABASE SCHEMA (JAVÍTOTT TÖRLÉSSEL) ###
+-- ### POLYMARKET SUPABASE SCHEMA (JAVÍTOTT TÖRLÉSSEL ÉS PROFIL LÉTREHOZÁSI SZABÁLLYAL) ###
 
 -- 1. LÉPÉS: Függőségek és régi objektumok eltávolítása a HELYES sorrendben
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -104,4 +104,5 @@ CREATE POLICY "Allow insert for authenticated users" ON public.markets FOR INSER
 CREATE POLICY "Enable public read access for all users" ON public.comments FOR SELECT TO public USING (true);
 CREATE POLICY "Allow insert for authenticated users" ON public.comments FOR INSERT TO public WITH CHECK (auth.role() = 'authenticated' AND auth.uid() = user_id);
 CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles FOR SELECT USING (true);
+CREATE POLICY "Users can insert their own profile." ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "Users can update own profile." ON public.profiles FOR UPDATE USING (auth.uid() = id);
