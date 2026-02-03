@@ -11,6 +11,13 @@ const BRAND_LOGO = "https://img.cryptorank.io/coins/polymarket1671006384460.png"
 
 const slugify = (text: string) => text.toLowerCase().replace(/[^\w ]+/g, '').replace(/ +/g, '-').substring(0, 50);
 
+const formatMcapTarget = (num: number): string => {
+    if (num >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`;
+    if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+    if (num >= 1_000) return `${(num / 1_000).toFixed(0)}K`;
+    return num.toString();
+};
+
 const XIcon = ({ size = 16, className = "" }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} className={className} fill="currentColor">
     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
@@ -146,7 +153,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
   const handleTweetAction = () => { /* ... */ };
 
   const isResolved = merket.status !== 'OPEN';
-  const targetMcapFormatted = merket.targetMarketCap ? `${(merket.targetMarketCap / 1_000_000).toFixed(1)}M` : '';
+  const targetMcapFormatted = merket.targetMarketCap ? formatMcapTarget(merket.targetMarketCap) : '';
   const mcapProgress = mcap && merket.targetMarketCap ? (mcap.raw / merket.targetMarketCap) * 100 : 0;
 
   return (
@@ -264,7 +271,7 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
           <h3 className="text-base md:text-lg font-bold text-slate-100 leading-tight group-hover:text-blue-400 transition-colors line-clamp-2 mb-2">{merket.question}</h3>
           {merket.marketType === 'MCAP_TARGET' && merket.targetMarketCap && (
             <div className="flex items-center gap-1.5 text-blue-400 font-mono text-[9px] uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded w-fit border border-blue-500/20">
-              <Target size={10} /> MCAP TARGET: ${(merket.targetMarketCap/1_000_000).toFixed(1)}M
+              <Target size={10} /> MCAP TARGET: ${formatMcapTarget(merket.targetMarketCap)}
             </div>
           )}
         </div>
@@ -336,7 +343,8 @@ const CreateMarketModal: React.FC<{ onClose: () => void; onCreated: () => void; 
             if (marketType === 'MCAP_TARGET') {
                 if (!contractAddress || !targetMcapStr) { alert("CA and Target MCAP are required."); setLoading(false); return; }
                 const targetMarketCap = parseMcapInput(targetMcapStr);
-                const questionText = `Will $${ticker || 'this asset'} reach a $${targetMcapStr.toUpperCase()} market cap within ${timeframe} hours?`;
+                const formattedMcap = formatMcapTarget(targetMarketCap);
+                const questionText = `Will $${ticker || 'this asset'} reach a $${formattedMcap} market cap within ${timeframe} hours?`;
                 marketData = {
                     marketType: 'MCAP_TARGET',
                     question: questionText,
