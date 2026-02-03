@@ -8,8 +8,8 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onLogoClick }) => {
   const [copied, setCopied] = useState(false);
-  const ca = "xxxxxxxxxxxxxxxxxxxxxxxxxxxx";
-  const logoUrl = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
+  const ca = "COOLcatXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+  const logoUrl = "https://pbs.twimg.com/media/G8TVwV2XgAczA4R?format=jpg&name=large";
 
   const handleCopy = () => {
     navigator.clipboard.writeText(ca);
@@ -27,7 +27,7 @@ const Header: React.FC<HeaderProps> = ({ onLogoClick }) => {
                 <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
             </div>
             <span className="text-xl md:text-2xl font-bold tracking-tighter text-slate-100 uppercase">
-                Polymarket
+                COOLCAT
             </span>
         </div>
 
@@ -49,7 +49,7 @@ const Header: React.FC<HeaderProps> = ({ onLogoClick }) => {
 
             {/* Follow on X Link */}
             <a 
-                href="https://x.com" 
+                href="https://x.com/coolcat" 
                 target="_blank" 
                 rel="noreferrer"
                 className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-slate-200 hover:bg-slate-700 rounded-full transition-all group shadow-md font-bold text-sm border border-slate-700"

@@ -6,7 +6,7 @@ interface HeroProps {
 }
 
 const Hero: React.FC<HeroProps> = ({ onStart }) => {
-  const heroImageUrl = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
+  const heroImageUrl = "https://pbs.twimg.com/media/G8TVwV2XgAczA4R?format=jpg&name=large";
 
   return (
     <section className="relative pt-24 pb-12 md:pt-32 md:pb-20">
@@ -14,11 +14,11 @@ const Hero: React.FC<HeroProps> = ({ onStart }) => {
       <div className="container mx-auto px-4 relative z-10">
         
         {/* Main Hero Image */}
-        <div className="w-56 h-56 md:w-72 md:h-72 mx-auto mb-8 md:mb-12 transform hover:scale-[1.05] transition-transform duration-700 p-4 rounded-full border-4 border-slate-700 bg-slate-800 drop-shadow-[0_0_60px_rgba(59,130,246,0.4)]">
+        <div className="w-56 h-56 md:w-72 md:h-72 mx-auto mb-8 md:mb-12 transform hover:scale-[1.05] transition-transform duration-700 p-2 rounded-full border-4 border-slate-700 bg-slate-800 drop-shadow-[0_0_60px_rgba(168,85,247,0.4)]">
             <img 
                 src={heroImageUrl} 
-                alt="Polymarket Hero Art" 
-                className="w-full h-full object-contain"
+                alt="COOLCAT Hero Art" 
+                className="w-full h-full object-cover rounded-full"
             />
         </div>
 
@@ -26,29 +26,29 @@ const Hero: React.FC<HeroProps> = ({ onStart }) => {
         <div className="flex flex-col items-center text-center max-w-4xl mx-auto">
           
           <div className="mb-6">
-             <span className="px-4 py-1.5 md:px-5 md:py-2 rounded-full bg-slate-800 text-blue-400 text-xs md:text-sm font-bold uppercase tracking-wider shadow-lg border border-slate-700">
-                $Polymarket
+             <span className="px-4 py-1.5 md:px-5 md:py-2 rounded-full bg-slate-800 text-purple-400 text-xs md:text-sm font-bold uppercase tracking-wider shadow-lg border border-slate-700">
+                $COOL
              </span>
           </div>
 
           <h1 className="text-5xl md:text-8xl font-black mb-6 text-slate-100 leading-tight tracking-tighter drop-shadow-xl uppercase">
-            Polymarket
+            COOLCAT
           </h1>
           
           <p className="text-lg md:text-2xl text-slate-400 font-medium mb-8 md:mb-10 max-w-3xl leading-relaxed drop-shadow-md px-2">
-            Globally recognized and cited by the world's leading icons.<br className="hidden md:block"/>
-            We've engineered the definitive memecoin evolution of Polymarket, now live on pump.fun.
+            The coolest cat on Solana. Not just a meme, but a movement. <br className="hidden md:block"/>
+            Vibe with us and predict the future of the meta.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto justify-center px-4 md:px-0">
               <button 
                 onClick={onStart}
-                className="bg-blue-600 text-white font-bold text-lg md:text-xl px-8 py-4 rounded-full hover:bg-blue-700 transition-all shadow-xl shadow-blue-600/20 hover:scale-105 active:scale-95 w-full sm:w-auto"
+                className="bg-purple-600 text-white font-bold text-lg md:text-xl px-8 py-4 rounded-full hover:bg-purple-700 transition-all shadow-xl shadow-purple-600/20 hover:scale-105 active:scale-95 w-full sm:w-auto"
               >
                   Enter Terminal
               </button>
               <a 
-                  href="https://dexscreener.com/solana/xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  href="https://dexscreener.com/solana/COOLcatXXXXXXXXXXXXXXXXXXXXXXXXXXX"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="bg-slate-800 text-slate-200 font-bold text-lg md:text-xl px-8 py-4 rounded-full hover:bg-slate-700 transition-all shadow-lg border border-slate-700 flex items-center justify-center hover:scale-105 active:scale-95 w-full sm:w-auto"
