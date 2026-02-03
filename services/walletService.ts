@@ -5,6 +5,9 @@ import { supabase } from './supabaseClient';
 declare global {
   interface Window {
     solana?: any;
+    phantom?: {
+      solana: any;
+    }
   }
 }
 
@@ -14,17 +17,21 @@ declare global {
  * @throws {Error} If Phantom wallet is not found or connection is rejected.
  */
 export const connectPhantomWallet = async (): Promise<string> => {
-  const provider = window.solana;
+  const provider = window.phantom?.solana;
+  
   if (!provider || !provider.isPhantom) {
     throw new Error("Phantom wallet not found! Please install it from phantom.app");
   }
 
-  await provider.connect({ onlyIfTrusted: false });
-  if (!provider.publicKey) {
-     throw new Error("Wallet connection rejected by user.");
+  try {
+    // The `connect` method will prompt the user to connect their wallet.
+    const response = await provider.connect();
+    // On a successful connection, the response will include the user's public key.
+    return response.publicKey.toString();
+  } catch (err) {
+    // This block will catch any errors, including when the user rejects the connection request.
+    throw new Error("Wallet connection rejected by user.");
   }
-
-  return provider.publicKey.toString();
 };
 
 
