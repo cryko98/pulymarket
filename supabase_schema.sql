@@ -55,8 +55,6 @@ CREATE OR REPLACE FUNCTION public.vote_market(p_market_id bigint, p_vote_type te
  SECURITY DEFINER
 AS $function$
 BEGIN
-  -- This function runs with the privileges of the user who defined it (postgres)
-  -- It bypasses RLS on the markets table.
   IF p_previous_vote IS NOT NULL THEN
     IF p_previous_vote = 'YES' THEN
       UPDATE public.markets SET yes_votes = yes_votes - 1 WHERE id = p_market_id;
@@ -73,25 +71,41 @@ BEGIN
 END;
 $function$;
 
--- 6. LÉPÉS: JAVÍTOTT funkció és trigger létrehozása új profilokhoz
+-- 6. LÉPÉS: ROBUSZTUS funkció és trigger létrehozása új profilokhoz
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
-  username_val TEXT;
+  base_username TEXT;
+  final_username TEXT;
+  attempts INT := 0;
 BEGIN
+  -- 1. Alap felhasználónév generálása
   IF new.email LIKE '%@phantom.app' THEN
-    -- For Phantom users, create a unique name like 'sol-abcd-wxyz' to avoid collisions.
-    username_val := 'sol-' || substr(split_part(new.email, '@', 1), 1, 4) || '-' || substr(split_part(new.email, '@', 1), -4);
+    base_username := 'sol-' || substr(split_part(new.email, '@', 1), 1, 4) || '-' || substr(split_part(new.email, '@', 1), -4);
   ELSE
-    -- For email users, use the part before the @, ensuring it respects the 15 character limit.
-    username_val := substr(split_part(new.email, '@', 1), 1, 15);
+    base_username := regexp_replace(split_part(new.email, '@', 1), '[^a-zA-Z0-9_]', '', 'g');
+    IF char_length(base_username) < 3 THEN
+      base_username := 'user' || substr(md5(random()::text), 1, 10);
+    END IF;
   END IF;
 
-  -- This insert creates the user's public profile.
-  -- If this fails (e.g., due to a rare username collision), the entire signup transaction is rolled back.
-  INSERT INTO public.profiles (id, username)
-  VALUES (new.id, username_val);
-  RETURN new;
+  final_username := substr(base_username, 1, 12);
+
+  -- 2. Ciklus az egyedi felhasználónév megtalálásához
+  LOOP
+    BEGIN
+      INSERT INTO public.profiles (id, username)
+      VALUES (new.id, final_username);
+      RETURN new; -- Sikeres beszúrás esetén kilépés
+    EXCEPTION WHEN unique_violation THEN
+      -- Ha a név foglalt, új nevet generálunk egy véletlen számmal
+      attempts := attempts + 1;
+      final_username := substr(base_username, 1, 11) || '-' || (floor(random() * 900) + 100)::text;
+      IF attempts > 5 THEN
+        RAISE EXCEPTION 'Could not generate a unique username for user %', new.id;
+      END IF;
+    END;
+  END LOOP;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -106,12 +120,11 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 -- 8. LÉPÉS: RLS szabályok (policy-k) létrehozása
 CREATE POLICY "Enable public read access for all users" ON public.markets FOR SELECT TO public USING (true);
-CREATE POLICY "Allow insert for authenticated users" ON public.markets FOR INSERT TO public WITH CHECK (auth.role() = 'authenticated' AND auth.uid() = user_id);
--- Proactive Fix: Add an UPDATE policy. Although voting uses an RPC, this allows for future features like editing a market.
-CREATE POLICY "Allow users to update their own markets" ON public.markets FOR UPDATE TO public USING (auth.uid() = user_id);
+CREATE POLICY "Allow insert for authenticated users" ON public.markets FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Allow authenticated users to update markets" ON public.markets FOR UPDATE TO authenticated USING (true);
 
 CREATE POLICY "Enable public read access for all users" ON public.comments FOR SELECT TO public USING (true);
-CREATE POLICY "Allow insert for authenticated users" ON public.comments FOR INSERT TO public WITH CHECK (auth.role() = 'authenticated' AND auth.uid() = user_id);
+CREATE POLICY "Allow insert for authenticated users" ON public.comments FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "Users can insert their own profile." ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
