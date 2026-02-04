@@ -2,13 +2,12 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { getMerkets, voteMerket, getUserVote, createMarket, getComments, postComment, fetchMarketCap, checkAndResolveMarket, getProfile } from '../services/marketService';
 import { PredictionMerket as MerketType, MerketComment, MarketType, MarketStatus } from '../types';
-import { Loader2, X, Plus, MessageSquare, Star, Send, Target, Clock, CheckCircle, XCircle, User, LogOut, Info, Edit, ServerCrash } from 'lucide-react';
+import { Loader2, X, Plus, MessageSquare, Star, Send, Target, Clock, CheckCircle, XCircle, User, LogOut, Info, Edit, ServerCrash, LogIn } from 'lucide-react';
 import { Chart, registerables } from 'https://esm.sh/chart.js';
 import UsernameSetupModal from './UsernameSetup';
 import { supabase } from '../services/supabaseClient';
 import type { Session } from '@supabase/supabase-js';
-import { PhantomIcon } from './wallet/PhantomIcon';
-import { signInWithPhantom } from '../services/walletService';
+import Auth from './Auth';
 
 Chart.register(...registerables);
 
@@ -200,13 +199,14 @@ const PredictionMarket: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<'general' | 'mcap'>('general');
   const [activeSort, setActiveSort] = useState<'top' | 'new' | 'trending'>('top');
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<{ username: string; wallet_address: string } | null>(null);
+  const [profile, setProfile] = useState<{ username: string } | null>(null);
   const [showUsernameSetup, setShowUsernameSetup] = useState(false);
-  const [walletLoading, setWalletLoading] = useState(false);
-  const [walletError, setWalletError] = useState<string|null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [dbError, setDbError] = useState<string|null>(null);
 
   const fetchInitialData = async () => {
     setLoading(true);
+    setDbError(null);
     try {
         const data = await getMerkets();
         setMerkets(data);
@@ -218,7 +218,7 @@ const PredictionMarket: React.FC = () => {
         }
     } catch (error: any) {
         console.error("Failed to fetch markets:", error);
-        setWalletError("Could not connect to the database. Please check the terminal connection.");
+        setDbError("Could not connect to the database. Please check the terminal connection.");
     } finally {
         setLoading(false);
     }
@@ -250,7 +250,7 @@ const PredictionMarket: React.FC = () => {
   };
 
   const handleVote = async (id: string, option: 'YES' | 'NO', status: MarketStatus) => {
-    if (!session) { handleWalletLogin(); return; }
+    if (!session) { setShowAuthModal(true); return; }
     setActionLoading(true);
     try { 
       await voteMerket(id, option, status); 
@@ -262,27 +262,15 @@ const PredictionMarket: React.FC = () => {
       }
     } catch (e: any) { 
       console.error("Vote failed:", e); 
-      setWalletError(e.message || "Vote failed. Please try again.");
+      alert(e.message || "Vote failed. Please try again.");
     } finally { 
       setActionLoading(false); 
     }
   };
 
-  const handleWalletLogin = async () => {
-    setWalletLoading(true);
-    setWalletError(null);
-    try {
-        await signInWithPhantom();
-    } catch (err: any) {
-        setWalletError(err.message || 'Failed to connect wallet.');
-    } finally {
-        setWalletLoading(false);
-    }
-  };
-
   const handleMarketUpdate = (updatedMarket: MerketType) => { setMerkets(prev => prev.map(m => m.id === updatedMarket.id ? updatedMarket : m)); if (selectedMerket?.id === updatedMarket.id) { setSelectedMerket(updatedMarket); } };
   
-  const handleCreateMarketOpen = () => { if (!session) { handleWalletLogin(); } else { setIsCreateOpen(true); } };
+  const handleCreateMarketOpen = () => { if (!session) { setShowAuthModal(true); } else { setIsCreateOpen(true); } };
   const handleLogout = async () => { await supabase.auth.signOut(); };
 
   const sortedMerkets = useMemo(() => {
@@ -295,7 +283,7 @@ const PredictionMarket: React.FC = () => {
     }
   }, [merkets, activeCategory, activeSort]);
 
-  const userDisplay = profile?.username || (profile?.wallet_address ? `${profile.wallet_address.slice(0, 4)}...${profile.wallet_address.slice(-4)}` : (session?.user?.email ? `${session.user.email.slice(0,4)}...${session.user.email.slice(session.user.email.indexOf('@')-4, session.user.email.indexOf('@'))}` : '...'));
+  const userDisplay = profile?.username || session?.user?.email?.split('@')[0] || 'anon';
   
   return (
     <section id="merkets">
@@ -319,9 +307,9 @@ const PredictionMarket: React.FC = () => {
 
                 {session ? (
                     <div className="flex items-center gap-2">
-                        <div className="text-right hidden sm:block bg-slate-950 border border-slate-800 px-3 py-2 rounded-full">
+                        <div className="text-right hidden sm:block bg-slate-950 border border-slate-800 px-4 py-2 rounded-full">
                             <div className="text-sm font-bold text-slate-100 flex items-center gap-2">
-                                <PhantomIcon size={14} />
+                                <User size={14} className="text-blue-400" />
                                 <span className="font-mono text-xs">{userDisplay}</span>
                                 <button onClick={() => setShowUsernameSetup(true)} className="text-slate-400 hover:text-white"><Edit size={12} /></button>
                             </div>
@@ -329,14 +317,14 @@ const PredictionMarket: React.FC = () => {
                         <button onClick={handleLogout} title="Logout" className="p-2.5 bg-slate-800 border border-slate-700 rounded-full hover:bg-red-500/20 hover:border-red-500 transition-colors"><LogOut size={16} /></button>
                     </div>
                 ) : (
-                    <button onClick={handleWalletLogin} disabled={walletLoading} className="flex items-center justify-center gap-2 px-6 py-2.5 bg-[#512da8] text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-[#4527a0] transition-all border border-transparent shadow-lg disabled:opacity-50 min-w-[170px]">
-                        {walletLoading ? <Loader2 className="animate-spin" size={16}/> : 'Connect Phantom'}
+                    <button onClick={() => setShowAuthModal(true)} className="flex items-center justify-center gap-2 px-6 py-2.5 bg-slate-800 text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-slate-700 transition-all border border-slate-700 shadow-lg">
+                        <LogIn size={16}/> Login
                     </button>
                 )}
             </div>
         </div>
         
-        {walletError && <div className="mb-4 text-center text-red-400 text-xs font-bold bg-red-500/10 p-3 rounded-lg border border-red-500/20">{walletError}</div>}
+        {dbError && <div className="mb-4 text-center text-red-400 text-xs font-bold bg-red-500/10 p-3 rounded-lg border border-red-500/20">{dbError}</div>}
 
         {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4"><Loader2 className="animate-spin text-blue-500" size={56} /><span className="font-bold text-[10px] text-slate-500 uppercase tracking-widest">Syncing Terminal...</span></div>
@@ -355,9 +343,10 @@ const PredictionMarket: React.FC = () => {
           </div>
         )}
       </div>
-      {selectedMerket && <MerketDetailModal merket={selectedMerket} session={session} onClose={() => { setSelectedMerket(null); window.location.hash = 'live-market'; }} onVote={handleVote} isVoting={actionLoading} onMarketUpdate={handleMarketUpdate} onLoginRequest={handleWalletLogin} />}
+      {selectedMerket && <MerketDetailModal merket={selectedMerket} session={session} onClose={() => { setSelectedMerket(null); window.location.hash = 'live-market'; }} onVote={handleVote} isVoting={actionLoading} onMarketUpdate={handleMarketUpdate} onLoginRequest={() => setShowAuthModal(true)} />}
       {isCreateOpen && <CreateMarketModal onClose={()=>setIsCreateOpen(false)} onCreated={fetchInitialData} />}
       {showUsernameSetup && <UsernameSetupModal onClose={handleUsernameUpdated} />}
+      {showAuthModal && <Auth onClose={() => setShowAuthModal(false)} />}
     </section>
   );
 };
