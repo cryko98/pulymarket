@@ -20,24 +20,18 @@ export const connectPhantomWallet = async (): Promise<string> => {
   const provider = window.phantom?.solana;
   
   if (!provider || !provider.isPhantom) {
-    // For better user experience, open the Phantom website if the wallet is not found.
     window.open('https://phantom.app/', '_blank');
     throw new Error("Phantom wallet not found! Please install it.");
   }
 
-  // KEY FIX: If the wallet is already connected, return the public key directly.
-  // This handles cases where the user has previously approved the connection
-  // and the popup doesn't need to appear again, fixing the "nothing happens" issue.
   if (provider.isConnected && provider.publicKey) {
     return provider.publicKey.toString();
   }
 
   try {
-    // If not connected, request a connection. This will open the popup.
     const response = await provider.connect();
     return response.publicKey.toString();
   } catch (err) {
-    // This block will catch any errors, including when the user rejects the connection request.
     throw new Error("Wallet connection rejected by user.");
   }
 };
@@ -48,15 +42,9 @@ export const connectPhantomWallet = async (): Promise<string> => {
  * This function attempts to sign in with credentials derived from the wallet's public key.
  * If the user doesn't exist, it automatically creates a new account.
  * 
- * IMPORTANT: For this to work, you MUST disable "Confirm email" in your
- * Supabase project's Authentication -> Provider -> Email settings.
- * The email `publicKey@phantom.app` is a unique identifier, not a real inbox.
- * 
  * @throws {Error} If any step of the process fails.
  */
 export const signInWithPhantom = async (): Promise<void> => {
-    // CRITICAL FIX: Check if Supabase is configured before attempting to use it.
-    // This prevents a crash and provides a clear error to the user if env vars are missing.
     if (!supabase) {
         throw new Error("Database connection is not configured. Please contact the site administrator.");
     }
@@ -65,7 +53,7 @@ export const signInWithPhantom = async (): Promise<void> => {
     if (!publicKey) throw new Error("Could not get public key from wallet.");
 
     const email = `${publicKey}@phantom.app`;
-    const password = publicKey; // Using the public key as a password for this auth method
+    const password = publicKey;
 
     // 1. Try to sign in
     const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -74,27 +62,28 @@ export const signInWithPhantom = async (): Promise<void> => {
     });
 
     if (signInError) {
-        // 2. If sign-in fails, assume the user doesn't exist and try to sign up.
+        // 2. If sign-in fails, check for specific errors.
         if (signInError.message.includes('Invalid login credentials')) {
+            // User does not exist, so sign them up.
             const { error: signUpError } = await supabase.auth.signUp({
                 email,
                 password,
             });
 
             if (signUpError) {
-                // If sign-up also fails, throw that error
+                if (signUpError.message.includes('Email logins are disabled')) {
+                     throw new Error("CRITICAL CONFIG ERROR: The Email Provider must be ENABLED in your Supabase project (Authentication -> Providers) for wallet login to function. Please enable it and try again.");
+                }
                 throw new Error(`Sign-up failed: ${signUpError.message}`);
             }
             // Sign-up was successful, set a flag for the UI to know this is a new user
             localStorage.setItem('isNewUser', 'true');
+        } else if (signInError.message.includes('Email logins are disabled')) {
+            throw new Error("CRITICAL CONFIG ERROR: The Email Provider must be ENABLED in your Supabase project (Authentication -> Providers) for wallet login to function. Please enable it and try again.");
         } else {
             // A different sign-in error occurred.
-            // Check for the specific "Email not confirmed" error and provide a helpful message.
-            if (signInError.message.includes('Email not confirmed')) {
-              throw new Error("Login Failed: 'Email Confirmation' might be enabled. Please disable it in your Supabase project's settings to allow wallet logins.");
-            }
             throw new Error(`Sign-in failed: ${signInError.message}`);
         }
     }
-    // Sign-in was successful
+    // Sign-in or sign-up was successful
 };
