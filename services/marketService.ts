@@ -137,21 +137,30 @@ export const createMarket = async (
 
 
 export const checkAndResolveMarket = async (market: PredictionMerket): Promise<PredictionMerket | null> => {
-    if (!supabase || market.status !== 'OPEN' || market.marketType !== 'MCAP_TARGET' || !market.contractAddress || !market.targetMarketCap || !market.expiresAt) {
+    if (!supabase || market.status !== 'OPEN') {
         return null;
     }
 
     const now = Date.now();
     let newStatus: MarketStatus | null = null;
 
-    if (now > market.expiresAt) {
-        newStatus = 'EXPIRED';
-    } else {
-        const mcapData = await fetchMarketCap(market.contractAddress);
-        if (mcapData && mcapData.raw >= market.targetMarketCap) {
-            newStatus = 'RESOLVED_YES';
+    if (market.marketType === 'MCAP_TARGET') {
+        if (!market.contractAddress || !market.targetMarketCap || !market.expiresAt) return null;
+        
+        if (now > market.expiresAt) {
+            newStatus = 'EXPIRED';
+        } else {
+            const mcapData = await fetchMarketCap(market.contractAddress);
+            if (mcapData && mcapData.raw >= market.targetMarketCap) {
+                newStatus = 'RESOLVED_YES';
+            }
+        }
+    } else if (market.marketType === 'STANDARD') {
+        if (market.expiresAt && now > market.expiresAt) {
+            newStatus = 'EXPIRED';
         }
     }
+
 
     if (newStatus) {
         const { error } = await supabase
@@ -167,7 +176,7 @@ export const checkAndResolveMarket = async (market: PredictionMerket): Promise<P
     return null; // No change
 };
 
-export const voteOnOption = async (newOptionId: string, oldOptionId: string | null, status: MarketStatus): Promise<void> => {
+export const voteOnOption = async (marketId: string, newOptionId: string, oldOptionId: string | null, status: MarketStatus): Promise<void> => {
   if (!isSupabaseConfigured() || !supabase || status !== 'OPEN') {
       console.error("Cannot vote on this market.");
       return;
@@ -185,7 +194,7 @@ export const voteOnOption = async (newOptionId: string, oldOptionId: string | nu
         console.error("RPC Error:", error);
         throw error;
     } else {
-        saveUserVote(newOptionId.toString(), newOptionId);
+        saveUserVote(marketId, newOptionId);
     }
 
   } catch (err) {
