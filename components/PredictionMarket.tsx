@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { getMerkets, voteMerket, getUserVote, createMarket, getComments, postComment, fetchMarketCap, checkAndResolveMarket, getProfile } from '../services/marketService';
 import { PredictionMerket as MerketType, MerketComment, MarketType, MarketStatus } from '../types';
-import { Loader2, X, Plus, MessageSquare, Star, Send, Target, Clock, CheckCircle, XCircle, User, LogOut, Info, Edit } from 'lucide-react';
+import { Loader2, X, Plus, MessageSquare, Star, Send, Target, Clock, CheckCircle, XCircle, User, LogOut, Info, Edit, ServerCrash } from 'lucide-react';
 import { Chart, registerables } from 'https://esm.sh/chart.js';
 import UsernameSetupModal from './UsernameSetup';
 import { supabase } from '../services/supabaseClient';
@@ -200,21 +200,32 @@ const PredictionMarket: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<'general' | 'mcap'>('general');
   const [activeSort, setActiveSort] = useState<'top' | 'new' | 'trending'>('top');
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<{ username: string } | null>(null);
+  const [profile, setProfile] = useState<{ username: string, wallet_address: string } | null>(null);
   const [showUsernameSetup, setShowUsernameSetup] = useState(false);
   const [walletLoading, setWalletLoading] = useState(false);
   const [walletError, setWalletError] = useState<string|null>(null);
 
-  useEffect(() => {
-    const checkSession = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
-        if (session) {
-            const userProfile = await getProfile();
-            setProfile(userProfile);
+  const fetchInitialData = async () => {
+    setLoading(true);
+    try {
+        const data = await getMerkets();
+        setMerkets(data);
+        const hash = window.location.hash;
+        if (hash.includes(':')) {
+            const slug = hash.split(':')[1];
+            const target = data.find(m => slugify(m.question) === slug);
+            if (target) setSelectedMerket(target);
         }
-    };
-    checkSession();
+    } catch (error: any) {
+        console.error("Failed to fetch markets:", error);
+        setWalletError("Could not connect to the database. Please check the terminal connection.");
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInitialData();
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
         setSession(session);
@@ -238,20 +249,23 @@ const PredictionMarket: React.FC = () => {
       setProfile(userProfile);
   };
 
-  const refreshMarkets = async () => { setLoading(true); const data = await getMerkets(); setMerkets(data); setLoading(false); };
-
-  useEffect(() => {
-    getMerkets().then(data => {
-      setMerkets(data); setLoading(false);
-      const hash = window.location.hash; if (hash.includes(':')) { const slug = hash.split(':')[1]; const target = data.find(m => slugify(m.question) === slug); if (target) setSelectedMerket(target); }
-    });
-  }, []);
-
   const handleVote = async (id: string, option: 'YES' | 'NO', status: MarketStatus) => {
     if (!session) { handleWalletLogin(); return; }
     setActionLoading(true);
-    try { await voteMerket(id, option, status); const updated = await getMerkets(); setMerkets(updated); if (selectedMerket?.id === id) { const newSelected = updated.find(m => m.id === id) || null; setSelectedMerket(newSelected); }
-    } catch (e) { console.error("Vote failed:", e); alert("Vote failed. Please ensure you are logged in."); handleWalletLogin(); } finally { setActionLoading(false); }
+    try { 
+      await voteMerket(id, option, status); 
+      const updated = await getMerkets(); 
+      setMerkets(updated); 
+      if (selectedMerket?.id === id) { 
+        const newSelected = updated.find(m => m.id === id) || null; 
+        setSelectedMerket(newSelected); 
+      }
+    } catch (e: any) { 
+      console.error("Vote failed:", e); 
+      setWalletError(e.message || "Vote failed. Please try again.");
+    } finally { 
+      setActionLoading(false); 
+    }
   };
 
   const handleWalletLogin = async () => {
@@ -280,6 +294,8 @@ const PredictionMarket: React.FC = () => {
         default: return categoryMarkets;
     }
   }, [merkets, activeCategory, activeSort]);
+
+  const userDisplay = profile?.username || (profile?.wallet_address ? `${profile.wallet_address.slice(0, 4)}...${profile.wallet_address.slice(-4)}` : '...');
   
   return (
     <section id="merkets">
@@ -303,17 +319,17 @@ const PredictionMarket: React.FC = () => {
 
                 {session ? (
                     <div className="flex items-center gap-2">
-                        <div className="text-right hidden sm:block">
+                        <div className="text-right hidden sm:block bg-slate-950 border border-slate-800 px-3 py-2 rounded-full">
                             <div className="text-sm font-bold text-slate-100 flex items-center gap-2">
                                 <PhantomIcon size={14} />
-                                {profile?.username ?? `${session.user.email.slice(0, 4)}...${session.user.email.slice(40)}`}
+                                <span className="font-mono text-xs">{userDisplay}</span>
                                 <button onClick={() => setShowUsernameSetup(true)} className="text-slate-400 hover:text-white"><Edit size={12} /></button>
                             </div>
                         </div>
                         <button onClick={handleLogout} title="Logout" className="p-2.5 bg-slate-800 border border-slate-700 rounded-full hover:bg-red-500/20 hover:border-red-500 transition-colors"><LogOut size={16} /></button>
                     </div>
                 ) : (
-                    <button onClick={handleWalletLogin} disabled={walletLoading} className="flex items-center justify-center gap-2 px-6 py-2.5 bg-[#512da8] text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-[#4527a0] transition-all border border-slate-700 shadow-lg disabled:opacity-50">
+                    <button onClick={handleWalletLogin} disabled={walletLoading} className="flex items-center justify-center gap-2 px-6 py-2.5 bg-[#512da8] text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-[#4527a0] transition-all border border-slate-700 shadow-lg disabled:opacity-50 min-w-[170px]">
                         {walletLoading ? <Loader2 className="animate-spin" size={16}/> : 'Connect Phantom'}
                     </button>
                 )}
@@ -324,14 +340,23 @@ const PredictionMarket: React.FC = () => {
 
         {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-4"><Loader2 className="animate-spin text-blue-500" size={56} /><span className="font-bold text-[10px] text-slate-500 uppercase tracking-widest">Syncing Terminal...</span></div>
-        ) : (
+        ) : sortedMerkets.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 pb-20">
             {sortedMerkets.map(m => <MerketCard key={m.id} merket={m} onOpen={target => { setSelectedMerket(target); window.location.hash = `live-market:${slugify(target.question)}`; }} />)}
+          </div>
+        ) : (
+          <div className="text-center py-20 px-4">
+            <ServerCrash size={56} className="mx-auto text-slate-700 mb-4" />
+            <h3 className="text-2xl font-bold text-slate-300">No Oracle Signals Detected.</h3>
+            <p className="text-slate-500 mt-2 mb-6">The terminal is waiting for new prediction markets. Why not be the first to deploy one?</p>
+            <button onClick={handleCreateMarketOpen} className="flex items-center gap-2 px-6 py-3 mx-auto bg-blue-500 text-white rounded-2xl font-bold text-sm uppercase tracking-wider hover:bg-blue-600 transition-all shadow-2xl shadow-blue-500/20 border border-blue-400/20">
+                <Plus size={18} /> Deploy New Market
+            </button>
           </div>
         )}
       </div>
       {selectedMerket && <MerketDetailModal merket={selectedMerket} session={session} onClose={() => { setSelectedMerket(null); window.location.hash = 'live-market'; }} onVote={handleVote} isVoting={actionLoading} onMarketUpdate={handleMarketUpdate} onLoginRequest={handleWalletLogin} />}
-      {isCreateOpen && <CreateMarketModal onClose={()=>setIsCreateOpen(false)} onCreated={refreshMarkets} />}
+      {isCreateOpen && <CreateMarketModal onClose={()=>setIsCreateOpen(false)} onCreated={fetchInitialData} />}
       {showUsernameSetup && <UsernameSetupModal onClose={handleUsernameUpdated} />}
     </section>
   );

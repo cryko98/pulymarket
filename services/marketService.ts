@@ -67,7 +67,12 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
         .select('id, user_id, question, yes_votes, no_votes, created_at, image, description, contract_address, option_a, option_b, market_type, target_market_cap, expires_at, status')
         .order('created_at', { ascending: false });
       
-      if (!error && data) {
+      if (error) {
+        console.error("Supabase getMerkets error:", error);
+        throw error;
+      }
+
+      if (data) {
         return data.map((item: any) => ({
           id: item.id.toString(),
           user_id: item.user_id,
@@ -87,7 +92,7 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
         }));
       }
     } catch (err) { 
-        console.error("Supabase fetch error:", err); 
+        console.error("Supabase fetch exception:", err);
     }
   }
   return [];
@@ -236,7 +241,7 @@ export const getProfile = async () => {
 
     const { data, error } = await supabase
         .from('profiles')
-        .select('username')
+        .select('username, wallet_address')
         .eq('id', user.id)
         .single();
     
