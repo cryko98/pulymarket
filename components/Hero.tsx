@@ -48,7 +48,7 @@ const Hero: React.FC<HeroProps> = ({ onStart }) => {
                   Enter Terminal
               </button>
               <a 
-                  href="https://dexscreener.com/solana/xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  href="https://dexscreener.com/solana/38zR2R1ZvdfqnPhtqz8SFPVBQnQHUXztQuzpXwBhpump"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="bg-slate-800 text-slate-200 font-bold text-lg md:text-xl px-8 py-4 rounded-full hover:bg-slate-700 transition-all shadow-lg border border-slate-700 flex items-center justify-center hover:scale-105 active:scale-95 w-full sm:w-auto"

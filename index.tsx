@@ -188,7 +188,7 @@ function App() {
             </div>
             <span className="font-bold text-slate-200 text-xl md:text-2xl uppercase tracking-tighter">Polymarket Meme</span>
         </div>
-        <p className="text-xs md:text-sm font-bold uppercase tracking-widest text-slate-500 px-4">© 2025 THE POLYMARKET OF MEMES</p>
+        <p className="text-xs md:text-sm font-bold uppercase tracking-widest text-slate-500 px-4">© 2026 THE POLYMARKET OF MEMES</p>
       </footer>
     </div>
   );
