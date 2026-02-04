@@ -249,20 +249,54 @@ const PredictionMarket: React.FC = () => {
   }, []);
   
   const handleVote = async (id: string, option: 'YES' | 'NO', status: MarketStatus) => {
+    if (status !== 'OPEN') return;
+
+    const previousVote = getUserVote(id);
+    if (previousVote === option) {
+        return;
+    }
+    
     setActionLoading(true);
-    try { 
-      await voteMerket(id, option, status); 
-      const updated = await getMerkets(); 
-      setMerkets(updated); 
-      if (selectedMerket?.id === id) { 
-        const newSelected = updated.find(m => m.id === id) || null; 
-        setSelectedMerket(newSelected); 
-      }
-    } catch (e: any) { 
-      console.error("Vote failed:", e); 
-      alert(e.message || "Vote failed. Please try again.");
-    } finally { 
-      setActionLoading(false); 
+
+    const originalMerkets = merkets;
+    const originalSelectedMerket = selectedMerket;
+
+    const optimisticMerkets = merkets.map(m => {
+        if (m.id === id) {
+            const newMerket = { ...m };
+            if (previousVote === 'YES') newMerket.yesVotes--;
+            if (previousVote === 'NO') newMerket.noVotes--;
+            if (option === 'YES') newMerket.yesVotes++;
+            if (option === 'NO') newMerket.noVotes++;
+            return newMerket;
+        }
+        return m;
+    });
+
+    setMerkets(optimisticMerkets);
+    if (selectedMerket?.id === id) {
+        setSelectedMerket(optimisticMerkets.find(m => m.id === id) || null);
+    }
+
+    try {
+        await voteMerket(id, option, status);
+        
+        const updatedFromDB = await getMerkets();
+        setMerkets(updatedFromDB);
+        if (selectedMerket?.id === id) {
+            const newSelected = updatedFromDB.find(m => m.id === id) || null;
+            setSelectedMerket(newSelected);
+        }
+
+    } catch (e: any) {
+        console.error("Vote failed, reverting UI:", e);
+        alert(e.message || "Vote failed. Your vote was not saved.");
+        
+        setMerkets(originalMerkets);
+        setSelectedMerket(originalSelectedMerket);
+
+    } finally {
+        setActionLoading(false);
     }
   };
 
