@@ -61,7 +61,14 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
   const [newComment, setNewComment] = useState('');
   const [commentUsername, setCommentUsername] = useState('');
   const [mcap, setMcap] = useState<{formatted: string, raw: number} | null>(null);
+  const [selectedOption, setSelectedOption] = useState<'YES' | 'NO' | null>(getUserVote(merket.id));
   
+  useEffect(() => {
+    // This effect ensures the selected vote button is correctly displayed
+    // based on localStorage after the market data is refreshed (e.g., after a vote).
+    setSelectedOption(getUserVote(merket.id));
+  }, [merket.id, merket.yesVotes, merket.noVotes]);
+
   useEffect(() => {
     const savedUsername = localStorage.getItem('poly_username') || '';
     setCommentUsername(savedUsername);
@@ -69,8 +76,6 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
     if (merket.status === 'OPEN') resolveCheck(); 
   }, [merket.id]);
   
-  const currentVote = getUserVote(merket.id);
-  const [selectedOption, setSelectedOption] = useState<'YES' | 'NO' | null>(currentVote);
   const totalVotes = merket.yesVotes + merket.noVotes;
   const yesProb = totalVotes === 0 ? 50 : Math.round((merket.yesVotes / totalVotes) * 100);
   const labelA = merket.optionA || 'YES'; const labelB = merket.optionB || 'NO';
@@ -93,6 +98,14 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
   };
   
   const handleVoteClick = () => { if (selectedOption) onVote(merket.id, selectedOption, merket.status); };
+
+  const handleShare = () => {
+    const shareText = `I'm predicting on: "${merket.question}"\n\n${labelA}: ${yesProb}%\n${labelB}: ${100-yesProb}%\n\nCast your vote on the Polymarket Terminal:`;
+    const baseUrl = `${window.location.origin}${window.location.pathname}`;
+    const shareUrl = `${baseUrl}#live-market:${slugify(merket.question)}`;
+    const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+    window.open(twitterIntentUrl, '_blank', 'noopener,noreferrer');
+  };
 
   const isResolved = merket.status !== 'OPEN';
   const targetMcapFormatted = merket.targetMarketCap ? formatMcapTarget(merket.targetMarketCap) : '';
@@ -136,7 +149,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
         <div className="w-full md:w-80 bg-slate-950 p-5 md:p-12 flex flex-col justify-center gap-3 md:gap-4 border-t border-slate-700 md:border-t-0 md:border-l z-10 shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-none pb-8 md:pb-12 relative">
             <div className={`flex md:flex-col gap-3 ${isResolved ? 'opacity-40 pointer-events-none' : ''}`}><button onClick={() => setSelectedOption('YES')} className={`flex-1 md:w-full py-4 md:py-5 rounded-2xl font-bold text-sm md:text-lg border-2 transition-all uppercase tracking-wider ${selectedOption === 'YES' ? 'bg-green-500/10 border-green-500 text-green-400' : 'bg-slate-800 border-slate-700 hover:border-slate-600 text-slate-400'}`}>{labelA}</button><button onClick={() => setSelectedOption('NO')} className={`flex-1 md:w-full py-4 md:py-5 rounded-2xl font-bold text-sm md:text-lg border-2 transition-all uppercase tracking-wider ${selectedOption === 'NO' ? 'bg-red-500/10 border-red-500 text-red-400' : 'bg-slate-800 border-slate-700 hover:border-slate-600 text-slate-400'}`}>{labelB}</button></div>
             <button onClick={handleVoteClick} disabled={!selectedOption || isVoting || isResolved} className="w-full bg-blue-600 text-white font-bold py-4 md:py-5 rounded-2xl hover:bg-blue-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed mt-2 md:mt-4 shadow-xl uppercase tracking-wider text-sm md:text-base">{isVoting ? <Loader2 className="animate-spin mx-auto" /> : (isResolved ? 'Market Closed' : 'Submit Vote')}</button>
-            <div className="grid grid-cols-1 gap-3 mt-2 md:mt-6"><button className="py-3 md:py-4 bg-slate-800 border border-slate-700 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700 transition-all text-slate-300"><XIcon size={12} className="md:w-[14px] md:h-[14px]" /> Share Analysis</button></div>
+            <div className="grid grid-cols-1 gap-3 mt-2 md:mt-6"><button onClick={handleShare} className="py-3 md:py-4 bg-slate-800 border border-slate-700 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700 transition-all text-slate-300"><XIcon size={12} className="md:w-[14px] md:h-[14px]" /> Share Analysis</button></div>
         </div>
       </div>
     </div>
