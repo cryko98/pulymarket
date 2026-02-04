@@ -200,7 +200,7 @@ const PredictionMarket: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<'general' | 'mcap'>('general');
   const [activeSort, setActiveSort] = useState<'top' | 'new' | 'trending'>('top');
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<{ username: string } | null>(null);
+  const [profile, setProfile] = useState<{ username: string; wallet_address: string } | null>(null);
   const [showUsernameSetup, setShowUsernameSetup] = useState(false);
   const [walletLoading, setWalletLoading] = useState(false);
   const [walletError, setWalletError] = useState<string|null>(null);
@@ -231,7 +231,7 @@ const PredictionMarket: React.FC = () => {
         setSession(session);
         if (session) {
             const userProfile = await getProfile();
-            setProfile(userProfile as { username: string } | null);
+            setProfile(userProfile);
             if (localStorage.getItem('isNewUser')) {
                 localStorage.removeItem('isNewUser');
                 setShowUsernameSetup(true);
@@ -246,7 +246,7 @@ const PredictionMarket: React.FC = () => {
   const handleUsernameUpdated = async () => {
       setShowUsernameSetup(false);
       const userProfile = await getProfile();
-      setProfile(userProfile as { username: string } | null);
+      setProfile(userProfile);
   };
 
   const handleVote = async (id: string, option: 'YES' | 'NO', status: MarketStatus) => {
@@ -295,7 +295,7 @@ const PredictionMarket: React.FC = () => {
     }
   }, [merkets, activeCategory, activeSort]);
 
-  const userDisplay = profile?.username || '...';
+  const userDisplay = profile?.username || (profile?.wallet_address ? `${profile.wallet_address.slice(0, 4)}...${profile.wallet_address.slice(-4)}` : '...');
   
   return (
     <section id="merkets">
