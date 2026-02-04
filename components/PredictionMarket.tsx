@@ -286,7 +286,7 @@ const PredictionMarket: React.FC = () => {
   const handleLogout = async () => { await supabase.auth.signOut(); };
 
   const sortedMerkets = useMemo(() => {
-    const categoryMarkets = merkets.filter(m => activeCategory === 'mcap' ? m.marketType === 'MCAP_TARGET' : m.marketType === 'STANDARD');
+    const categoryMarkets = merkets.filter(m => activeCategory === 'mcap' ? m.marketType === 'MCAP_TARGET' : m.marketType !== 'MCAP_TARGET');
     switch (activeSort) {
         case 'top': return categoryMarkets.sort((a, b) => (b.yesVotes + b.noVotes) - (a.yesVotes + a.noVotes));
         case 'new': return categoryMarkets.sort((a, b) => b.createdAt - a.createdAt);
@@ -295,7 +295,7 @@ const PredictionMarket: React.FC = () => {
     }
   }, [merkets, activeCategory, activeSort]);
 
-  const userDisplay = profile?.username || (profile?.wallet_address ? `${profile.wallet_address.slice(0, 4)}...${profile.wallet_address.slice(-4)}` : '...');
+  const userDisplay = profile?.username || (profile?.wallet_address ? `${profile.wallet_address.slice(0, 4)}...${profile.wallet_address.slice(-4)}` : (session?.user?.email ? `${session.user.email.slice(0,4)}...${session.user.email.slice(session.user.email.indexOf('@')-4, session.user.email.indexOf('@'))}` : '...'));
   
   return (
     <section id="merkets">
@@ -329,7 +329,7 @@ const PredictionMarket: React.FC = () => {
                         <button onClick={handleLogout} title="Logout" className="p-2.5 bg-slate-800 border border-slate-700 rounded-full hover:bg-red-500/20 hover:border-red-500 transition-colors"><LogOut size={16} /></button>
                     </div>
                 ) : (
-                    <button onClick={handleWalletLogin} disabled={walletLoading} className="flex items-center justify-center gap-2 px-6 py-2.5 bg-[#512da8] text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-[#4527a0] transition-all border border-slate-700 shadow-lg disabled:opacity-50 min-w-[170px]">
+                    <button onClick={handleWalletLogin} disabled={walletLoading} className="flex items-center justify-center gap-2 px-6 py-2.5 bg-[#512da8] text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-[#4527a0] transition-all border border-transparent shadow-lg disabled:opacity-50 min-w-[170px]">
                         {walletLoading ? <Loader2 className="animate-spin" size={16}/> : 'Connect Phantom'}
                     </button>
                 )}
