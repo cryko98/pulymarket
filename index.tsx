@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import PredictionMerket from './components/PredictionMarket';
-import { ShieldCheck, Skull, TrendingUp, BarChart3, Globe, ArrowLeft, Terminal, Layout, Share2, Activity, Zap, Cpu, Search } from 'lucide-react';
+import { BarChart3, Globe, ArrowLeft, Terminal, Layout, Share2, Activity, Zap, Cpu, Search, TrendingUp } from 'lucide-react';
 
 const AboutSection = () => (
   <section className="py-16 md:py-24 bg-slate-950 text-white relative overflow-hidden border-y border-slate-800">
