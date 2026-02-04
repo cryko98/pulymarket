@@ -1,6 +1,5 @@
 
 import { supabase } from './supabaseClient';
-import { Buffer } from 'buffer';
 
 // Add Phantom's injected provider type to the window object
 declare global {
@@ -25,66 +24,65 @@ export const connectPhantomWallet = async (): Promise<string> => {
   }
 
   if (!provider.isConnected) {
-    await provider.connect();
+    try {
+        await provider.connect();
+    } catch (err) {
+        throw new Error("Wallet connection rejected by user.");
+    }
   }
   
   return provider.publicKey.toString();
 };
 
 /**
- * Signs in a user using a cryptographic signature from their Phantom wallet.
- * This is the standard "Sign-In with Wallet" (SIWE) flow.
+ * Signs in or signs up a user using their Phantom wallet public key.
+ * This function uses a deterministic email/password combo derived from the public key.
+ * It first tries to sign in. If that fails because the user doesn't exist, it signs them up.
  */
 export const signInWithPhantom = async (): Promise<void> => {
     if (!supabase) {
         throw new Error("Database connection is not configured.");
     }
 
-    const provider = window.phantom?.solana;
-    if (!provider) {
-        throw new Error("Phantom provider not available.");
-    }
-    
     const publicKey = await connectPhantomWallet();
+    if (!publicKey) {
+        throw new Error("Could not get public key from wallet.");
+    }
 
-    // 1. Create a message for the user to sign
-    const message = `Please sign this message to authenticate with Polymarket.\n\nNonce: ${new Date().toISOString()}`;
-    const encodedMessage = new TextEncoder().encode(message);
+    const email = `${publicKey}@phantom.app`;
+    const password = publicKey;
 
-    // 2. Get the signature from the user
-    const { signature } = await provider.signMessage(encodedMessage, "utf8");
-    const signatureBuffer = Buffer.from(signature);
-
-    // 3. Call our secure edge function to verify the signature
-    const { data, error } = await supabase.functions.invoke('connect-wallet', {
-      body: { 
-        publicKey: publicKey,
-        signature: signatureBuffer.toString('base64'), // Send signature as base64
-        message: message,
-      },
+    // 1. Attempt to sign in the user
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
     });
 
-    if (error) {
-        console.error("Edge function error:", error);
-        throw new Error(error.message || 'Failed to verify signature.');
-    }
+    if (signInError) {
+        // 2. If sign-in fails, check if it's because the user doesn't exist
+        if (signInError.message.includes('Invalid login credentials')) {
+            // User does not exist, so let's sign them up
+            const { error: signUpError } = await supabase.auth.signUp({
+                email,
+                password,
+            });
 
-    if (!data.accessToken) {
-        throw new Error('Authentication failed: No access token returned.');
-    }
+            if (signUpError) {
+                // Handle potential sign-up errors, like if email logins are disabled
+                 if (signUpError.message.includes('Signups not allowed')) {
+                     throw new Error("CRITICAL CONFIG ERROR: The 'Email' Provider must be ENABLED in your Supabase project (Authentication -> Providers) for wallet login to function.");
+                }
+                throw new Error(`Sign-up failed: ${signUpError.message}`);
+            }
+            // Sign-up was successful, this automatically logs the user in
+            localStorage.setItem('isNewUser', 'true');
 
-    // 4. Set the session on the client using the token from our function
-    const { error: sessionError } = await supabase.auth.setSession({
-      access_token: data.accessToken,
-      refresh_token: data.refreshToken, // Supabase now often returns this
-    });
-
-    if (sessionError) {
-        throw new Error(`Failed to set session: ${sessionError.message}`);
+        } else if (signInError.message.includes('Email logins are disabled')) {
+             throw new Error("CRITICAL CONFIG ERROR: The 'Email' Provider must be ENABLED in your Supabase project (Authentication -> Providers) for wallet login to function.");
+        } else {
+            // A different, unexpected sign-in error occurred
+            throw new Error(`Sign-in failed: ${signInError.message}`);
+        }
     }
-
-    // Check if it's a new user based on function response
-    if (data.isNewUser) {
-        localStorage.setItem('isNewUser', 'true');
-    }
+    // If we are here, either the initial sign-in was successful, or the sign-up was.
 };
