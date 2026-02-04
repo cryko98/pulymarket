@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { getMerkets, voteOnOption, getUserVote, createMarket, getComments, postComment, fetchMarketCap, checkAndResolveMarket } from '../services/marketService';
 import { PredictionMerket as MerketType, MerketComment, MarketType, MarketStatus, MarketOption } from '../types';
-import { Loader2, X, Plus, MessageSquare, Star, Send, Target, Clock, CheckCircle, XCircle, Trash2, ServerCrash } from 'lucide-react';
+import { Loader2, X, Plus, MessageSquare, Star, Send, Target, Clock, CheckCircle, XCircle, Trash2, ServerCrash, RefreshCw } from 'lucide-react';
 import { Chart, registerables } from 'https://esm.sh/chart.js';
 
 Chart.register(...registerables);
@@ -121,7 +121,29 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
               <div className="w-12 h-12 md:w-16 md:h-16 rounded-xl bg-blue-600 p-0.5 shrink-0 border border-slate-700 shadow-[0_0_20px_rgba(37,99,235,0.3)]"><img src={merket.image || BRAND_LOGO} className="w-full h-full object-cover rounded-lg" /></div>
               <h2 className="text-2xl md:text-4xl font-bold tracking-tight break-words">{merket.question}</h2>
             </div>
-            {merket.marketType === 'MCAP_TARGET' && ( /* MCAP specific UI */ )}
+            {merket.marketType === 'MCAP_TARGET' && (
+                <div className="mb-6 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700">
+                            <div className="text-[9px] uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5"><Target size={10} /> Target MCAP</div>
+                            <div className="text-lg font-bold text-blue-400">${targetMcapFormatted}</div>
+                        </div>
+                        <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700">
+                            <div className="text-[9px] uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5"><Clock size={10} /> Time Left</div>
+                            <div className="text-lg font-mono font-bold text-blue-400">{merket.expiresAt && <Countdown expiry={merket.expiresAt}/>}</div>
+                        </div>
+                    </div>
+                    <div>
+                        <div className="flex justify-between items-center mb-1">
+                            <div className="text-[9px] uppercase font-bold text-slate-400 tracking-widest">Live MCAP: <span className="text-white font-mono text-xs">${mcap?.formatted || '...'}</span></div>
+                            <div className="text-xs font-mono font-bold text-white">{mcapProgress.toFixed(1)}%</div>
+                        </div>
+                        <div className="h-2 bg-slate-700 rounded-full w-full">
+                            <div className="h-full bg-blue-500 rounded-full transition-all" style={{width: `${mcapProgress}%`}}></div>
+                        </div>
+                    </div>
+                </div>
+            )}
             { isResolved ? ( <div className={`p-8 my-6 rounded-3xl border-2 text-center ${merket.status === 'RESOLVED_YES' ? 'bg-green-500/10 border-green-500' : 'bg-red-500/10 border-red-500'}`}><h3 className="text-3xl font-bold flex items-center justify-center gap-3">{merket.status === 'RESOLVED_YES' ? <><CheckCircle /> Target Reached</> : <><XCircle/> Expired</>}</h3></div> ) : ( <VoteChart options={merket.options} /> )}
             {merket.description && <p className="text-sm md:text-lg font-medium text-slate-400 mb-8 md:mb-12 px-2 leading-relaxed">"{merket.description}"</p>}
             <div className="mt-8 border-t border-slate-800 pt-6 md:pt-8 pb-20 md:pb-0">
@@ -225,6 +247,7 @@ const PredictionMarket: React.FC = () => {
   const [selectedMerket, setSelectedMerket] = useState<MerketType | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState<'general' | 'mcap'>('general');
   const [activeSort, setActiveSort] = useState<'top' | 'new' | 'trending'>('top');
@@ -243,6 +266,22 @@ const PredictionMarket: React.FC = () => {
     } catch (error: any) { console.error("Failed to fetch markets:", error); setDbError("Could not connect to the database. Please check the terminal connection.");
     } finally { setLoading(false); }
   };
+  
+  const handleRefresh = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    setDbError(null);
+    try {
+        const data = await getMerkets();
+        setMerkets(data);
+    } catch (error: any) {
+        console.error("Failed to refresh markets:", error);
+        setDbError("Could not refresh markets. Please check the connection.");
+    } finally {
+        setIsRefreshing(false);
+    }
+  };
+
 
   useEffect(() => { fetchInitialData(); }, []);
   
@@ -310,6 +349,9 @@ const PredictionMarket: React.FC = () => {
                     <button onClick={() => setActiveSort('new')} className={`flex-1 px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all ${activeSort === 'new' ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>New</button>
                     <button onClick={() => setActiveSort('trending')} className={`flex-1 px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all ${activeSort === 'trending' ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>Trending</button>
                 </div>
+                <button onClick={handleRefresh} disabled={isRefreshing} className="p-2.5 bg-slate-800 text-white rounded-2xl hover:bg-slate-700 transition-all shadow-lg border border-slate-700 shrink-0 disabled:opacity-50 disabled:cursor-wait">
+                    <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
+                </button>
                 <button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-blue-600 transition-all shadow-2xl shadow-blue-500/20 border border-blue-400/20 shrink-0"> <Plus size={16} /> <span className="hidden md:inline">New Market</span> </button>
             </div>
         </div>
