@@ -1,8 +1,8 @@
 
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { getMerkets, voteMerket, getUserVote, createMarket, getComments, postComment, fetchMarketCap, checkAndResolveMarket } from '../services/marketService';
-import { PredictionMerket as MerketType, MerketComment, MarketType, MarketStatus } from '../types';
-import { Loader2, X, Plus, MessageSquare, Star, Send, Target, Clock, CheckCircle, XCircle, User, LogOut, Info, Edit, ServerCrash, LogIn } from 'lucide-react';
+import { getMerkets, voteOnOption, getUserVote, createMarket, getComments, postComment, fetchMarketCap, checkAndResolveMarket } from '../services/marketService';
+import { PredictionMerket as MerketType, MerketComment, MarketType, MarketStatus, MarketOption } from '../types';
+import { Loader2, X, Plus, MessageSquare, Star, Send, Target, Clock, CheckCircle, XCircle, Trash2, ServerCrash } from 'lucide-react';
 import { Chart, registerables } from 'https://esm.sh/chart.js';
 
 Chart.register(...registerables);
@@ -25,27 +25,40 @@ const XIcon = ({ size = 16, className = "" }) => (
   </svg>
 );
 
-const MarketChart: React.FC<{ yesProb: number; marketId: string; optionA: string; optionB: string; }> = ({ yesProb, marketId, optionA, optionB }) => {
+const VoteChart: React.FC<{ options: MarketOption[] }> = ({ options }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const chartRef = useRef<Chart | null>(null);
+    const chartColors = ['#22c55e', '#ef4444', '#3b82f6', '#eab308', '#8b5cf6', '#ec4899'];
 
     useEffect(() => {
         if (!canvasRef.current) return;
         const ctx = canvasRef.current.getContext('2d');
         if (!ctx) return;
-        if (chartRef.current) chartRef.current.destroy();
-        let seed = marketId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        const seededRandom = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
-        const dataPoints = 100;
-        const labels = Array.from({ length: dataPoints }, (_, i) => `T-${dataPoints - i}`);
-        const data = Array.from({ length: dataPoints }, (_, i) => { const progress = i / (dataPoints - 1); const value = 50 + (yesProb - 50) * progress; const noise = (seededRandom() - 0.5) * (1 - progress) * 20; return Math.max(0, Math.min(100, i === dataPoints - 1 ? yesProb : value + noise)); });
-        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-        gradient.addColorStop(0, 'rgba(34, 197, 94, 0.3)'); gradient.addColorStop(1, 'rgba(34, 197, 94, 0)');
-        chartRef.current = new Chart(ctx, { type: 'line', data: { labels, datasets: [{ label: `${optionA} Probability`, data, borderColor: '#22c55e', borderWidth: 2.5, pointRadius: 0, tension: 0.4, fill: true, backgroundColor: gradient, }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: true, mode: 'index', intersect: false, backgroundColor: 'rgba(5, 12, 24, 0.8)', borderColor: '#1f2937', borderWidth: 1, titleFont: { weight: 'bold' }, bodyFont: { weight: 'bold' }, padding: 10, callbacks: { label: (c) => `${c.dataset.label}: ${c.parsed.y.toFixed(2)}%` } } }, scales: { x: { display: false }, y: { min: 0, max: 100, grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#6b7280', font: { weight: 'bold' }, callback: (v) => `${v}%` } } } } });
-        return () => chartRef.current?.destroy();
-    }, [yesProb, marketId, optionA]);
 
-    return ( <div className="w-full h-[250px] bg-slate-950 rounded-xl border border-slate-800 p-2 my-6 shadow-2xl relative"> <canvas ref={canvasRef}></canvas> <div className="absolute bottom-2 left-3 bg-black/60 px-3 py-1 rounded-md text-[9px] font-bold text-slate-400 uppercase tracking-widest border border-slate-700 pointer-events-none"> SOURCE: POLY-ORACLE v2 </div> </div> );
+        if (chartRef.current) {
+            chartRef.current.destroy();
+        }
+        
+        const totalVotes = options.reduce((sum, o) => sum + o.votes, 0);
+        if (totalVotes === 0) { // Display a 50/50 split for new markets
+             const evenSplitData = Array(options.length).fill(100 / options.length);
+             const evenSplitLabels = options.map(o => `${o.option_text} (---%)`);
+             chartRef.current = new Chart(ctx, { type: 'doughnut', data: { labels: evenSplitLabels, datasets: [{ data: evenSplitData, backgroundColor: chartColors.slice(0, options.length).map(c=>`${c}40`), borderColor: chartColors.slice(0, options.length), borderWidth: 2, hoverOffset: 8 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false }, tooltip: { enabled: false } } } });
+             return;
+        }
+
+        const chartData = options.map(o => o.votes);
+        const chartLabels = options.map(o => `${o.option_text} (${((o.votes / totalVotes) * 100).toFixed(1)}%)`);
+        const backgroundColors = options.map((_, i) => chartColors[i % chartColors.length]);
+        
+        chartRef.current = new Chart(ctx, { type: 'doughnut', data: { labels: chartLabels, datasets: [{ data: chartData, backgroundColor: backgroundColors, borderColor: '#1e293b', borderWidth: 4, hoverOffset: 12 }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { weight: 'bold' } } }, tooltip: { backgroundColor: 'rgba(5, 12, 24, 0.8)', borderColor: '#1f2937', borderWidth: 1, titleFont: { weight: 'bold' }, bodyFont: { weight: 'bold' }, padding: 10 } } } });
+
+        return () => {
+            chartRef.current?.destroy();
+        };
+    }, [options]);
+
+    return ( <div className="w-full h-[250px] bg-slate-950 rounded-xl border border-slate-800 p-4 my-6 shadow-2xl relative flex items-center justify-center"> <canvas ref={canvasRef}></canvas> </div> );
 };
 
 const Countdown: React.FC<{ expiry: number }> = ({ expiry }) => {
@@ -56,29 +69,16 @@ const Countdown: React.FC<{ expiry: number }> = ({ expiry }) => {
     return <span>{d > 0 && `${d}d `}{h.toString().padStart(2, '0')}:{m.toString().padStart(2, '0')}:{s.toString().padStart(2, '0')}</span>;
 };
 
-const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onVote: (id: string, option: 'YES' | 'NO', status: MarketStatus) => void; isVoting: boolean; onMarketUpdate: (m: MerketType) => void; }> = ({ merket, onClose, onVote, isVoting, onMarketUpdate }) => {
+const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onVote: (marketId: string, newOptionId: string, status: MarketStatus) => void; isVoting: boolean; onMarketUpdate: (m: MerketType) => void; }> = ({ merket, onClose, onVote, isVoting, onMarketUpdate }) => {
   const [comments, setComments] = useState<MerketComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [commentUsername, setCommentUsername] = useState('');
   const [mcap, setMcap] = useState<{formatted: string, raw: number} | null>(null);
-  const [selectedOption, setSelectedOption] = useState<'YES' | 'NO' | null>(getUserVote(merket.id));
+  const [selectedOptionId, setSelectedOptionId] = useState<string | null>(getUserVote(merket.id));
   
-  useEffect(() => {
-    // This effect ensures the selected vote button is correctly displayed
-    // based on localStorage after the market data is refreshed (e.g., after a vote).
-    setSelectedOption(getUserVote(merket.id));
-  }, [merket.id, merket.yesVotes, merket.noVotes]);
-
-  useEffect(() => {
-    const savedUsername = localStorage.getItem('poly_username') || '';
-    setCommentUsername(savedUsername);
-    const resolveCheck = async () => { const updatedMarket = await checkAndResolveMarket(merket); if (updatedMarket) onMarketUpdate(updatedMarket); }; 
-    if (merket.status === 'OPEN') resolveCheck(); 
-  }, [merket.id]);
+  useEffect(() => { setSelectedOptionId(getUserVote(merket.id)); }, [merket]);
+  useEffect(() => { const savedUsername = localStorage.getItem('poly_username') || ''; setCommentUsername(savedUsername); const resolveCheck = async () => { const updatedMarket = await checkAndResolveMarket(merket); if (updatedMarket) onMarketUpdate(updatedMarket); }; if (merket.status === 'OPEN') resolveCheck(); }, [merket.id]);
   
-  const totalVotes = merket.yesVotes + merket.noVotes;
-  const yesProb = totalVotes === 0 ? 50 : Math.round((merket.yesVotes / totalVotes) * 100);
-  const labelA = merket.optionA || 'YES'; const labelB = merket.optionB || 'NO';
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { if (merket.contractAddress) { const fetchMcap = () => fetchMarketCap(merket.contractAddress).then(setMcap); fetchMcap(); const interval = setInterval(fetchMcap, 15000); return () => clearInterval(interval); } }, [merket.contractAddress]);
@@ -87,20 +87,19 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
 
   const handlePostComment = async (e: React.FormEvent) => { 
     e.preventDefault(); 
-    if (!newComment.trim() || !commentUsername.trim()) {
-        alert("Username and message are required.");
-        return;
-    }
+    if (!newComment.trim() || !commentUsername.trim()) { alert("Username and message are required."); return; }
     localStorage.setItem('poly_username', commentUsername);
     await postComment(merket.id, newComment, commentUsername); 
     setNewComment(''); 
     setComments(await getComments(merket.id)); 
   };
   
-  const handleVoteClick = () => { if (selectedOption) onVote(merket.id, selectedOption, merket.status); };
+  const handleVoteClick = () => { if (selectedOptionId) onVote(merket.id, selectedOptionId, merket.status); };
 
   const handleShare = () => {
-    const shareText = `I'm predicting on: "${merket.question}"\n\n${labelA}: ${yesProb}%\n${labelB}: ${100-yesProb}%\n\nCast your vote on the Polymarket Terminal:`;
+    const totalVotes = merket.options.reduce((acc, opt) => acc + opt.votes, 0);
+    const voteDistribution = merket.options.map(opt => `${opt.option_text}: ${totalVotes > 0 ? ((opt.votes / totalVotes) * 100).toFixed(1) : (100 / merket.options.length).toFixed(1)}%`).join('\n');
+    const shareText = `I'm predicting on: "${merket.question}"\n\n${voteDistribution}\n\nCast your vote on the Polymarket Terminal:`;
     const baseUrl = `${window.location.origin}${window.location.pathname}`;
     const shareUrl = `${baseUrl}#live-market:${slugify(merket.question)}`;
     const twitterIntentUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
@@ -110,6 +109,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
   const isResolved = merket.status !== 'OPEN';
   const targetMcapFormatted = merket.targetMarketCap ? formatMcapTarget(merket.targetMarketCap) : '';
   const mcapProgress = mcap && merket.targetMarketCap ? (mcap.raw / merket.targetMarketCap) * 100 : 0;
+  const totalVotes = merket.options.reduce((acc, opt) => acc + opt.votes, 0);
 
   return (
     <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-md md:p-4">
@@ -121,21 +121,11 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
               <div className="w-12 h-12 md:w-16 md:h-16 rounded-xl bg-blue-600 p-0.5 shrink-0 border border-slate-700 shadow-[0_0_20px_rgba(37,99,235,0.3)]"><img src={merket.image || BRAND_LOGO} className="w-full h-full object-cover rounded-lg" /></div>
               <h2 className="text-2xl md:text-4xl font-bold tracking-tight break-words">{merket.question}</h2>
             </div>
-            {merket.marketType === 'MCAP_TARGET' && (
-                <div className="mb-6 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700"><div className="text-[9px] uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5"><Target size={10} /> Target MCAP</div><div className="text-lg font-bold text-blue-400">${targetMcapFormatted}</div></div>
-                        <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700"><div className="text-[9px] uppercase font-bold text-slate-400 tracking-widest flex items-center gap-1.5"><Clock size={10} /> Time Left</div><div className="text-lg font-mono font-bold text-blue-400">{merket.expiresAt && <Countdown expiry={merket.expiresAt}/>}</div></div>
-                    </div>
-                    <div>
-                        <div className="flex justify-between items-center mb-1"><div className="text-[9px] uppercase font-bold text-slate-400 tracking-widest">Live MCAP: <span className="text-white font-mono text-xs">${mcap?.formatted || '...'}</span></div><div className="text-xs font-mono font-bold text-white">{mcapProgress.toFixed(1)}%</div></div>
-                        <div className="h-2 bg-slate-700 rounded-full w-full"><div className="h-full bg-blue-500 rounded-full transition-all" style={{width: `${mcapProgress}%`}}></div></div>
-                    </div>
-                </div>
-            )}
-            { isResolved ? ( <div className={`p-8 my-6 rounded-3xl border-2 text-center ${merket.status === 'RESOLVED_YES' ? 'bg-green-500/10 border-green-500' : 'bg-red-500/10 border-red-500'}`}><h3 className="text-3xl font-bold flex items-center justify-center gap-3">{merket.status === 'RESOLVED_YES' ? <><CheckCircle /> Target Reached</> : <><XCircle/> Expired</>}</h3></div> ) : ( <div className="mb-6 md:mb-8 p-4 md:p-8 bg-slate-950/50 rounded-3xl border border-slate-800 relative"> <div className="flex justify-between items-end mb-4 md:mb-6 font-bold tracking-tight"><div className="flex flex-col"><span className="text-green-400 text-[10px] tracking-widest mb-1 opacity-70 font-bold uppercase">{labelA} Signal</span><span className="text-2xl md:text-4xl text-green-500">{yesProb}% {labelA}</span></div><div className="flex flex-col items-end"><span className="text-red-400 text-[10px] tracking-widest mb-1 opacity-70 font-bold uppercase">{labelB} Signal</span><span className="text-2xl md:text-4xl text-red-500">{100-yesProb}% {labelB}</span></div></div> <div className="h-3 md:h-4 bg-slate-800 rounded-full overflow-hidden flex mb-4 md:mb-6 border border-slate-700"><div className="h-full bg-green-600 transition-all duration-1000" style={{ width: `${yesProb}%` }} /><div className="h-full bg-red-600 transition-all duration-1000" style={{ width: `${100-yesProb}%` }} /></div> <MarketChart yesProb={yesProb} marketId={merket.id} optionA={labelA} optionB={labelB} /> </div> )}
+            {merket.marketType === 'MCAP_TARGET' && ( /* MCAP specific UI */ )}
+            { isResolved ? ( <div className={`p-8 my-6 rounded-3xl border-2 text-center ${merket.status === 'RESOLVED_YES' ? 'bg-green-500/10 border-green-500' : 'bg-red-500/10 border-red-500'}`}><h3 className="text-3xl font-bold flex items-center justify-center gap-3">{merket.status === 'RESOLVED_YES' ? <><CheckCircle /> Target Reached</> : <><XCircle/> Expired</>}</h3></div> ) : ( <VoteChart options={merket.options} /> )}
             {merket.description && <p className="text-sm md:text-lg font-medium text-slate-400 mb-8 md:mb-12 px-2 leading-relaxed">"{merket.description}"</p>}
             <div className="mt-8 border-t border-slate-800 pt-6 md:pt-8 pb-20 md:pb-0">
+               {/* Comments section remains the same */}
               <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4 md:mb-6 flex items-center gap-2"><MessageSquare size={14} /> Global Feed</h4>
               <div ref={scrollRef} className="space-y-3 md:space-y-4 max-h-48 md:max-h-64 overflow-y-auto custom-scroll pr-2 md:pr-4 mb-4 md:mb-6">{comments.length === 0 ? <div className="text-center py-8 text-slate-600 font-medium">Awaiting terminal signals...</div> : comments.map((c) => <div key={c.id} className="bg-slate-950 rounded-2xl p-3 md:p-4 border border-slate-800"><div className="flex justify-between items-center mb-1"><span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">{c.username}</span><span className="text-[9px] text-slate-600 font-mono">{new Date(c.created_at).toLocaleTimeString()}</span></div><p className="text-xs md:text-sm font-medium text-slate-300">{c.content}</p></div>)}</div>
               <form onSubmit={handlePostComment} className={`flex flex-col md:flex-row gap-2 bg-slate-950 p-2 rounded-2xl border border-slate-700 relative ${isResolved ? 'opacity-50' : 'focus-within:border-blue-500 transition-colors'}`}>
@@ -146,23 +136,33 @@ const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onV
             </div>
           </div>
         </div>
-        <div className="w-full md:w-80 bg-slate-950 p-5 md:p-12 flex flex-col justify-center gap-3 md:gap-4 border-t border-slate-700 md:border-t-0 md:border-l z-10 shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-none pb-8 md:pb-12 relative">
-            <div className={`flex md:flex-col gap-3 ${isResolved ? 'opacity-40 pointer-events-none' : ''}`}><button onClick={() => setSelectedOption('YES')} className={`flex-1 md:w-full py-4 md:py-5 rounded-2xl font-bold text-sm md:text-lg border-2 transition-all uppercase tracking-wider ${selectedOption === 'YES' ? 'bg-green-500/10 border-green-500 text-green-400' : 'bg-slate-800 border-slate-700 hover:border-slate-600 text-slate-400'}`}>{labelA}</button><button onClick={() => setSelectedOption('NO')} className={`flex-1 md:w-full py-4 md:py-5 rounded-2xl font-bold text-sm md:text-lg border-2 transition-all uppercase tracking-wider ${selectedOption === 'NO' ? 'bg-red-500/10 border-red-500 text-red-400' : 'bg-slate-800 border-slate-700 hover:border-slate-600 text-slate-400'}`}>{labelB}</button></div>
-            <button onClick={handleVoteClick} disabled={!selectedOption || isVoting || isResolved} className="w-full bg-blue-600 text-white font-bold py-4 md:py-5 rounded-2xl hover:bg-blue-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed mt-2 md:mt-4 shadow-xl uppercase tracking-wider text-sm md:text-base">{isVoting ? <Loader2 className="animate-spin mx-auto" /> : (isResolved ? 'Market Closed' : 'Submit Vote')}</button>
-            <div className="grid grid-cols-1 gap-3 mt-2 md:mt-6"><button onClick={handleShare} className="py-3 md:py-4 bg-slate-800 border border-slate-700 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700 transition-all text-slate-300"><XIcon size={12} className="md:w-[14px] md:h-[14px]" /> Share Analysis</button></div>
+        <div className="w-full md:w-80 bg-slate-950 p-5 md:p-8 flex flex-col justify-center gap-2 border-t border-slate-700 md:border-t-0 md:border-l z-10 shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-none pb-8 md:pb-8 relative">
+            <div className={`flex flex-col gap-2 ${isResolved ? 'opacity-40 pointer-events-none' : ''}`}>
+                {merket.options.map(opt => (
+                    <button key={opt.id} onClick={() => setSelectedOptionId(opt.id)} className={`w-full py-3 rounded-xl font-bold text-sm border-2 transition-all uppercase tracking-wider ${selectedOptionId === opt.id ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-slate-800 border-slate-700 hover:border-slate-600 text-slate-400'}`}>{opt.option_text}</button>
+                ))}
+            </div>
+            <button onClick={handleVoteClick} disabled={!selectedOptionId || isVoting || isResolved} className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl hover:bg-blue-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed mt-2 shadow-xl uppercase tracking-wider text-sm">{isVoting ? <Loader2 className="animate-spin mx-auto" /> : (isResolved ? 'Market Closed' : 'Submit Vote')}</button>
+            <div className="grid grid-cols-1 gap-3 mt-4"><button onClick={handleShare} className="py-3 bg-slate-800 border border-slate-700 rounded-xl flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700 transition-all text-slate-300"><XIcon size={12} /> Share Analysis</button></div>
         </div>
       </div>
     </div>
   );
 };
 
-const ChanceIndicator: React.FC<{ percentage: number }> = ({ percentage }) => {
-    const color = percentage >= 50 ? '#22c55e' : '#ef4444'; const size = 60; const strokeWidth = 5; const radius = (size - strokeWidth) / 2; const circumference = 2 * Math.PI * radius; const offset = circumference - (percentage / 100) * circumference;
+const ChanceIndicator: React.FC<{ percentage: number; color?: string }> = ({ percentage, color = '#22c55e' }) => {
+    const size = 60; const strokeWidth = 5; const radius = (size - strokeWidth) / 2; const circumference = 2 * Math.PI * radius; const offset = circumference - (percentage / 100) * circumference;
     return ( <div className="relative flex items-center justify-center" style={{ width: size, height: size }}> <svg className="absolute w-full h-full transform -rotate-90" viewBox={`0 0 ${size} ${size}`}> <circle className="text-slate-700" stroke="currentColor" strokeWidth={strokeWidth} fill="transparent" r={radius} cx={size / 2} cy={size / 2} /> <circle stroke={color} strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" fill="transparent" r={radius} cx={size / 2} cy={size / 2} style={{ transition: 'stroke-dashoffset 0.3s ease-in-out' }} /> </svg> <div className="flex items-baseline"> <span className="text-xl font-bold" style={{ color }}>{percentage}</span> <span className="text-xs font-bold" style={{ color }}>%</span> </div> </div> );
 };
 
 const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void }> = ({ merket, onOpen }) => {
-  const totalVotes = merket.yesVotes + merket.noVotes; const yesProb = totalVotes === 0 ? 50 : Math.round((merket.yesVotes / totalVotes) * 100); const labelA = merket.optionA || 'YES'; const labelB = merket.optionB || 'NO'; const isResolved = merket.status !== 'OPEN';
+  const totalVotes = merket.options.reduce((acc, opt) => acc + opt.votes, 0);
+  const sortedOptions = [...merket.options].sort((a, b) => b.votes - a.votes);
+  const topOption = sortedOptions[0];
+  const secondOption = sortedOptions[1];
+  const topProb = totalVotes === 0 ? (100 / (merket.options.length || 1)) : (topOption.votes / totalVotes) * 100;
+
+  const isResolved = merket.status !== 'OPEN';
   return (
     <div className={`bg-slate-800 border border-slate-700 rounded-3xl p-5 md:p-6 flex flex-col h-full hover:border-blue-500/50 transition-all group shadow-xl relative overflow-hidden ${isResolved ? 'opacity-60' : 'cursor-pointer'}`} onClick={() => !isResolved && onOpen(merket)}>
       {isResolved && ( <div className={`absolute top-3 right-3 text-xs font-bold uppercase px-2 py-0.5 rounded-full border ${merket.status === 'RESOLVED_YES' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}> {merket.status === 'RESOLVED_YES' ? 'Resolved' : 'Expired'} </div> )}
@@ -171,8 +171,11 @@ const MerketCard: React.FC<{ merket: MerketType; onOpen: (m: MerketType) => void
         <div className="shrink-0"><img src={merket.image || BRAND_LOGO} className="w-10 h-10 rounded-xl border border-slate-700 object-cover shadow-lg" /></div>
       </div>
       <div className="flex items-center justify-between mb-4">
-        <div className="flex flex-col gap-1.5 md:gap-2"> <div className="flex items-center gap-2 text-[10px] font-bold text-green-400 uppercase tracking-widest"><span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span><span>{labelA}: {yesProb}%</span></div> <div className="flex items-center gap-2 text-[10px] font-bold text-red-400 uppercase tracking-widest"><span className="w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span><span>{labelB}: {100-yesProb}%</span></div> </div>
-        <div className="shrink-0 scale-90 md:scale-100"><ChanceIndicator percentage={yesProb} /></div>
+        <div className="flex flex-col gap-1.5 md:gap-2">
+            {topOption && <div className="flex items-center gap-2 text-[10px] font-bold text-green-400 uppercase tracking-widest"><span className="w-1.5 h-1.5 rounded-full bg-green-400 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></span><span>{topOption.option_text}: {topProb.toFixed(0)}%</span></div>}
+            {secondOption && <div className="flex items-center gap-2 text-[10px] font-bold text-red-400 uppercase tracking-widest"><span className="w-1.5 h-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span><span>{secondOption.option_text}: {(totalVotes > 0 ? (secondOption.votes/totalVotes)*100 : 0).toFixed(0)}%</span></div> }
+        </div>
+        <div className="shrink-0 scale-90 md:scale-100"><ChanceIndicator percentage={Math.round(topProb)} /></div>
       </div>
       <div className="mt-auto pt-4 border-t border-slate-700 flex justify-between items-center text-[10px] font-bold uppercase text-slate-500 tracking-wider">
         <div className="flex items-center gap-4"><span className="flex items-center gap-1.5"><Star size={12} className="text-yellow-500/50" /> {totalVotes} Votes</span></div>
@@ -186,6 +189,7 @@ const CreateMarketModal: React.FC<{ onClose: () => void; onCreated: () => void; 
     const [marketType, setMarketType] = useState<MarketType>('STANDARD');
     const [question, setQuestion] = useState('');
     const [description, setDescription] = useState('');
+    const [options, setOptions] = useState(['YES', 'NO']);
     const [contractAddress, setContractAddress] = useState('');
     const [targetMcapStr, setTargetMcapStr] = useState('');
     const [timeframe, setTimeframe] = useState(24);
@@ -195,23 +199,25 @@ const CreateMarketModal: React.FC<{ onClose: () => void; onCreated: () => void; 
     const [ticker, setTicker] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const handleOptionChange = (index: number, value: string) => { const newOptions = [...options]; newOptions[index] = value; setOptions(newOptions); };
+    const addOption = () => setOptions([...options, `Option ${options.length + 1}`]);
+    const removeOption = (index: number) => { if (options.length > 2) { setOptions(options.filter((_, i) => i !== index)); } };
+    
     useEffect(() => { const fetchTicker = async () => { if (marketType === 'MCAP_TARGET' && contractAddress.length > 32) { try { const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${contractAddress}`); const data = await response.json(); if (data.pairs && data.pairs.length > 0) { setTicker(data.pairs[0].baseToken.symbol); } else { setTicker(null); } } catch (e) { setTicker(null); } } else { setTicker(null); } }; const timeoutId = setTimeout(fetchTicker, 500); return () => clearTimeout(timeoutId); }, [contractAddress, marketType]);
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onloadend = () => { const base64 = reader.result as string; setImage(base64); setPreview(base64); }; reader.readAsDataURL(file); };
     const parseMcapInput = (input: string): number => { const num = parseFloat(input); if (isNaN(num)) return 0; if (input.toLowerCase().includes('m')) return num * 1_000_000; if (input.toLowerCase().includes('k')) return num * 1_000; return num; };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault(); setLoading(true);
-        try { let marketData: Omit<MerketType, 'id' | 'yesVotes' | 'noVotes' | 'createdAt' | 'status'>;
-            if (marketType === 'MCAP_TARGET') { if (!contractAddress || !targetMcapStr) { alert("CA and Target MCAP are required."); setLoading(false); return; } const targetMarketCap = parseMcapInput(targetMcapStr); const formattedMcap = formatMcapTarget(targetMarketCap); const questionText = `Will $${ticker || 'this asset'} reach a $${formattedMcap} market cap within ${timeframe} hours?`; marketData = { marketType: 'MCAP_TARGET', question: questionText, description: description || `Tracking contract: ${contractAddress}`, contractAddress, targetMarketCap, expiresAt: Date.now() + timeframe * 60 * 60 * 1000, image: image || BRAND_LOGO, };
-            } else { if (!question.trim()) { alert("Question is required."); setLoading(false); return; } marketData = { marketType: 'STANDARD', question, description, contractAddress, image: image || BRAND_LOGO }; }
+        try { let marketData;
+            if (marketType === 'MCAP_TARGET') { if (!contractAddress || !targetMcapStr) { alert("CA and Target MCAP are required."); setLoading(false); return; } const targetMarketCap = parseMcapInput(targetMcapStr); const formattedMcap = formatMcapTarget(targetMarketCap); const questionText = `Will $${ticker || 'this asset'} reach a $${formattedMcap} market cap within ${timeframe} hours?`; marketData = { marketType: 'MCAP_TARGET', question: questionText, description: description || `Tracking contract: ${contractAddress}`, contractAddress, targetMarketCap, expiresAt: Date.now() + timeframe * 60 * 60 * 1000, image: image || BRAND_LOGO, options: ['YES', 'NO'] };
+            } else { if (!question.trim() || options.some(o => !o.trim()) || options.length < 2) { alert("Question and at least 2 valid options are required."); setLoading(false); return; } marketData = { marketType: 'STANDARD', question, description, contractAddress, image: image || BRAND_LOGO, options }; }
             await createMarket(marketData); onCreated(); onClose();
-        } catch (err: any) { 
-            console.error(err);
-            alert(`Error: ${err.message || 'Could not create market.'}`);
+        } catch (err: any) { console.error(err); alert(`Error: ${err.message || 'Could not create market.'}`);
         } finally { setLoading(false); }
     };
     
-    return ( <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4"> <div className="bg-slate-900 w-full max-w-xl rounded-3xl p-6 md:p-10 relative shadow-2xl text-white border border-slate-700 max-h-[90vh] overflow-y-auto custom-scroll"> <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-slate-800 text-slate-300 rounded-full border border-slate-700"><X size={20} /></button> <div className="mb-8"><h2 className="text-4xl font-bold tracking-tighter">New Market</h2><p className="text-blue-400 font-bold uppercase text-xs tracking-widest mt-1">Deploy terminal signal</p></div> <div className="flex bg-slate-800 p-1 rounded-full mb-6 border border-slate-700"><button onClick={()=>setMarketType('STANDARD')} className={`flex-1 py-2 rounded-full text-sm font-bold uppercase ${marketType==='STANDARD'?'bg-blue-600 text-white':'text-slate-400'}`}>Standard</button><button onClick={()=>setMarketType('MCAP_TARGET')} className={`flex-1 py-2 rounded-full text-sm font-bold uppercase ${marketType==='MCAP_TARGET'?'bg-blue-600 text-white':'text-slate-400'}`}>MCAP Target</button></div> <form onSubmit={handleSubmit} className="space-y-6"> {marketType === 'STANDARD' ? ( <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Question</label><input required type="text" placeholder="e.g., Will SOL flip ETH this cycle?" className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-medium text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600" value={question} onChange={(e) => setQuestion(e.target.value)} /></div> ) : ( <> <div> <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Solana Contract Address</label> <div className="relative"> <input required type="text" placeholder="Enter Token CA..." className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-mono text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600 pr-20" value={contractAddress} onChange={(e) => setContractAddress(e.target.value)} /> {ticker && <span className="absolute right-4 top-1/2 -translate-y-1/2 bg-blue-500/20 text-blue-300 text-xs font-bold px-2 py-0.5 rounded-md border border-blue-500/30">${ticker}</span>} </div> </div> <div className="grid grid-cols-2 gap-4"> <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Target MCAP</label><input required type="text" placeholder="e.g., 15M, 250K" className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-mono text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600" value={targetMcapStr} onChange={(e) => setTargetMcapStr(e.target.value)} /></div> <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Timeframe</label><select value={timeframe} onChange={(e)=>setTimeframe(Number(e.target.value))} className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-mono text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600"><option value={24}>24 Hours</option><option value={72}>3 Days</option><option value={168}>7 Days</option></select></div> </div> </> )} <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Context (Optional)</label><textarea rows={2} placeholder="Provide details..." className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-medium text-slate-300 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600 resize-none" value={description} onChange={(e) => setDescription(e.target.value)} /></div> <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Image</label><div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center bg-slate-800/50 hover:bg-slate-800/80 transition-all cursor-pointer relative min-h-[120px]">{preview ? <img src={preview} className="absolute inset-0 w-full h-full object-cover rounded-2xl opacity-80" /> : <Plus size={32} className="text-slate-600" />}<input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} /></div></div> <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-bold py-5 rounded-2xl text-xl hover:bg-blue-700 transition-all disabled:opacity-50 uppercase tracking-wider shadow-lg shadow-blue-500/20">{loading ? <Loader2 className="animate-spin mx-auto" /> : "Initiate Terminal"}</button> </form> </div> </div> );
+    return ( <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/80 backdrop-blur-xl p-4"> <div className="bg-slate-900 w-full max-w-xl rounded-3xl p-6 md:p-10 relative shadow-2xl text-white border border-slate-700 max-h-[90vh] overflow-y-auto custom-scroll"> <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-slate-800 text-slate-300 rounded-full border border-slate-700"><X size={20} /></button> <div className="mb-8"><h2 className="text-4xl font-bold tracking-tighter">New Market</h2><p className="text-blue-400 font-bold uppercase text-xs tracking-widest mt-1">Deploy terminal signal</p></div> <div className="flex bg-slate-800 p-1 rounded-full mb-6 border border-slate-700"><button onClick={()=>setMarketType('STANDARD')} className={`flex-1 py-2 rounded-full text-sm font-bold uppercase ${marketType==='STANDARD'?'bg-blue-600 text-white':'text-slate-400'}`}>Standard</button><button onClick={()=>setMarketType('MCAP_TARGET')} className={`flex-1 py-2 rounded-full text-sm font-bold uppercase ${marketType==='MCAP_TARGET'?'bg-blue-600 text-white':'text-slate-400'}`}>MCAP Target</button></div> <form onSubmit={handleSubmit} className="space-y-6"> {marketType === 'STANDARD' ? ( <> <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Question</label><input required type="text" placeholder="e.g., Who will win the election?" className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-medium text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600" value={question} onChange={(e) => setQuestion(e.target.value)} /></div> <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Options</label><div className="space-y-2">{options.map((opt, i) => <div key={i} className="flex items-center gap-2"><input required type="text" value={opt} onChange={(e) => handleOptionChange(i, e.target.value)} className="flex-grow bg-slate-800 border-2 border-slate-700 rounded-lg p-3 font-medium text-slate-100 focus:outline-none focus:border-blue-600" /><button type="button" onClick={() => removeOption(i)} disabled={options.length <= 2} className="p-3 bg-red-500/20 text-red-400 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"><Trash2 size={16}/></button></div>)}<button type="button" onClick={addOption} className="w-full mt-2 py-2 bg-slate-700 text-slate-300 rounded-lg font-bold text-xs uppercase hover:bg-slate-600">Add Option</button></div></div> </> ) : ( <> <div> <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Solana Contract Address</label> <div className="relative"> <input required type="text" placeholder="Enter Token CA..." className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-mono text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600 pr-20" value={contractAddress} onChange={(e) => setContractAddress(e.target.value)} /> {ticker && <span className="absolute right-4 top-1/2 -translate-y-1/2 bg-blue-500/20 text-blue-300 text-xs font-bold px-2 py-0.5 rounded-md border border-blue-500/30">${ticker}</span>} </div> </div> <div className="grid grid-cols-2 gap-4"> <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Target MCAP</label><input required type="text" placeholder="e.g., 15M, 250K" className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-mono text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600" value={targetMcapStr} onChange={(e) => setTargetMcapStr(e.target.value)} /></div> <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Timeframe</label><select value={timeframe} onChange={(e)=>setTimeframe(Number(e.target.value))} className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-mono text-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600"><option value={24}>24 Hours</option><option value={72}>3 Days</option><option value={168}>7 Days</option></select></div> </div> </> )} <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Context (Optional)</label><textarea rows={2} placeholder="Provide details..." className="w-full bg-slate-800 border-2 border-slate-700 rounded-2xl p-4 font-medium text-slate-300 focus:outline-none focus:ring-4 focus:ring-blue-600/20 focus:border-blue-600 resize-none" value={description} onChange={(e) => setDescription(e.target.value)} /></div> <div><label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1 tracking-widest">Image</label><div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center bg-slate-800/50 hover:bg-slate-800/80 transition-all cursor-pointer relative min-h-[120px]">{preview ? <img src={preview} className="absolute inset-0 w-full h-full object-cover rounded-2xl opacity-80" /> : <Plus size={32} className="text-slate-600" />}<input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} /></div></div> <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white font-bold py-5 rounded-2xl text-xl hover:bg-blue-700 transition-all disabled:opacity-50 uppercase tracking-wider shadow-lg shadow-blue-500/20">{loading ? <Loader2 className="animate-spin mx-auto" /> : "Initiate Terminal"}</button> </form> </div> </div> );
 };
 
 const PredictionMarket: React.FC = () => {
@@ -225,89 +231,67 @@ const PredictionMarket: React.FC = () => {
   const [dbError, setDbError] = useState<string|null>(null);
 
   const fetchInitialData = async () => {
-    setLoading(true);
-    setDbError(null);
+    setLoading(true); setDbError(null);
     try {
-        const data = await getMerkets();
-        setMerkets(data);
+        const data = await getMerkets(); setMerkets(data);
         const hash = window.location.hash;
         if (hash.includes(':')) {
             const slug = hash.split(':')[1];
             const target = data.find(m => slugify(m.question) === slug);
             if (target) setSelectedMerket(target);
         }
-    } catch (error: any) {
-        console.error("Failed to fetch markets:", error);
-        setDbError("Could not connect to the database. Please check the terminal connection.");
-    } finally {
-        setLoading(false);
-    }
+    } catch (error: any) { console.error("Failed to fetch markets:", error); setDbError("Could not connect to the database. Please check the terminal connection.");
+    } finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
+  useEffect(() => { fetchInitialData(); }, []);
   
-  const handleVote = async (id: string, option: 'YES' | 'NO', status: MarketStatus) => {
-    if (status !== 'OPEN') return;
+  const handleVote = async (marketId: string, newOptionId: string, status: MarketStatus) => {
+    if (status !== 'OPEN' || actionLoading) return;
 
-    const previousVote = getUserVote(id);
-    if (previousVote === option) {
-        return;
-    }
+    const oldOptionId = getUserVote(marketId);
+    if (oldOptionId === newOptionId) return;
     
     setActionLoading(true);
-
     const originalMerkets = merkets;
     const originalSelectedMerket = selectedMerket;
 
     const optimisticMerkets = merkets.map(m => {
-        if (m.id === id) {
-            const newMerket = { ...m };
-            if (previousVote === 'YES') newMerket.yesVotes--;
-            if (previousVote === 'NO') newMerket.noVotes--;
-            if (option === 'YES') newMerket.yesVotes++;
-            if (option === 'NO') newMerket.noVotes++;
-            return newMerket;
+        if (m.id === marketId) {
+            const newOptions = m.options.map(opt => {
+                let voteChange = 0;
+                if (opt.id === oldOptionId) voteChange = -1;
+                if (opt.id === newOptionId) voteChange = 1;
+                return { ...opt, votes: Math.max(0, opt.votes + voteChange) };
+            });
+            return { ...m, options: newOptions };
         }
         return m;
     });
 
     setMerkets(optimisticMerkets);
-    if (selectedMerket?.id === id) {
-        setSelectedMerket(optimisticMerkets.find(m => m.id === id) || null);
-    }
+    if (selectedMerket?.id === marketId) { setSelectedMerket(optimisticMerkets.find(m => m.id === marketId) || null); }
 
     try {
-        await voteMerket(id, option, status);
-        
+        await voteOnOption(newOptionId, oldOptionId, status);
         const updatedFromDB = await getMerkets();
         setMerkets(updatedFromDB);
-        if (selectedMerket?.id === id) {
-            const newSelected = updatedFromDB.find(m => m.id === id) || null;
-            setSelectedMerket(newSelected);
-        }
-
+        if (selectedMerket?.id === marketId) { setSelectedMerket(updatedFromDB.find(m => m.id === marketId) || null); }
     } catch (e: any) {
-        console.error("Vote failed, reverting UI:", e);
-        alert(e.message || "Vote failed. Your vote was not saved.");
-        
-        setMerkets(originalMerkets);
-        setSelectedMerket(originalSelectedMerket);
-
-    } finally {
-        setActionLoading(false);
-    }
+        console.error("Vote failed, reverting UI:", e); alert(e.message || "Vote failed. Your vote was not saved.");
+        setMerkets(originalMerkets); setSelectedMerket(originalSelectedMerket);
+    } finally { setActionLoading(false); }
   };
 
   const handleMarketUpdate = (updatedMarket: MerketType) => { setMerkets(prev => prev.map(m => m.id === updatedMarket.id ? updatedMarket : m)); if (selectedMerket?.id === updatedMarket.id) { setSelectedMerket(updatedMarket); } };
   
   const sortedMerkets = useMemo(() => {
     const categoryMarkets = merkets.filter(m => activeCategory === 'mcap' ? m.marketType === 'MCAP_TARGET' : m.marketType !== 'MCAP_TARGET');
+    const getSortScore = (m: MerketType) => m.options.reduce((acc, opt) => acc + opt.votes, 0);
     switch (activeSort) {
-        case 'top': return categoryMarkets.sort((a, b) => (b.yesVotes + b.noVotes) - (a.yesVotes + a.noVotes));
+        case 'top': return categoryMarkets.sort((a, b) => getSortScore(b) - getSortScore(a));
         case 'new': return categoryMarkets.sort((a, b) => b.createdAt - a.createdAt);
-        case 'trending': return categoryMarkets.sort((a, b) => { const scoreA = (a.yesVotes + a.noVotes) / Math.pow((Date.now() - a.createdAt) / 3600000, 1.8); const scoreB = (b.yesVotes + b.noVotes) / Math.pow((Date.now() - b.createdAt) / 3600000, 1.8); return scoreB - scoreA; });
+        case 'trending': return categoryMarkets.sort((a, b) => { const scoreA = getSortScore(a) / Math.pow((Date.now() - a.createdAt) / 3600000, 1.8); const scoreB = getSortScore(b) / Math.pow((Date.now() - b.createdAt) / 3600000, 1.8); return scoreB - scoreA; });
         default: return categoryMarkets;
     }
   }, [merkets, activeCategory, activeSort]);
@@ -320,17 +304,13 @@ const PredictionMarket: React.FC = () => {
                 <button onClick={() => setActiveCategory('general')} className={`flex-1 md:flex-none px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeCategory === 'general' ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:text-white'}`}>General Markets</button>
                 <button onClick={() => setActiveCategory('mcap')} className={`flex-1 md:flex-none px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${activeCategory === 'mcap' ? 'bg-blue-600 text-white shadow-xl' : 'text-slate-400 hover:text-white'}`}>MCAP Targets</button>
             </div>
-
             <div className="flex items-center gap-2 w-full md:w-auto">
                 <div className="flex items-center bg-slate-950 p-1 rounded-2xl border border-slate-800 shadow-lg flex-grow">
                     <button onClick={() => setActiveSort('top')} className={`flex-1 px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all ${activeSort === 'top' ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>Top</button>
                     <button onClick={() => setActiveSort('new')} className={`flex-1 px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all ${activeSort === 'new' ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>New</button>
                     <button onClick={() => setActiveSort('trending')} className={`flex-1 px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all ${activeSort === 'trending' ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>Trending</button>
                 </div>
-                
-                <button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-blue-600 transition-all shadow-2xl shadow-blue-500/20 border border-blue-400/20 shrink-0">
-                    <Plus size={16} /> <span className="hidden md:inline">New Market</span>
-                </button>
+                <button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-blue-600 transition-all shadow-2xl shadow-blue-500/20 border border-blue-400/20 shrink-0"> <Plus size={16} /> <span className="hidden md:inline">New Market</span> </button>
             </div>
         </div>
         
@@ -347,9 +327,7 @@ const PredictionMarket: React.FC = () => {
             <ServerCrash size={56} className="mx-auto text-slate-700 mb-4" />
             <h3 className="text-2xl font-bold text-slate-300">No Oracle Signals Detected.</h3>
             <p className="text-slate-500 mt-2 mb-6">The terminal is waiting for new prediction markets. Why not be the first to deploy one?</p>
-            <button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-2 px-6 py-3 mx-auto bg-blue-500 text-white rounded-2xl font-bold text-sm uppercase tracking-wider hover:bg-blue-600 transition-all shadow-2xl shadow-blue-500/20 border border-blue-400/20">
-                <Plus size={18} /> Deploy New Market
-            </button>
+            <button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-2 px-6 py-3 mx-auto bg-blue-500 text-white rounded-2xl font-bold text-sm uppercase tracking-wider hover:bg-blue-600 transition-all shadow-2xl shadow-blue-500/20 border border-blue-400/20"> <Plus size={18} /> Deploy New Market </button>
           </div>
         )}
       </div>

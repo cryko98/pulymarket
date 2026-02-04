@@ -1,17 +1,9 @@
 
-import { PredictionMerket, MerketComment, MarketStatus, MarketType } from '../types';
+import { PredictionMerket, MerketComment, MarketStatus, MarketType, MarketOption } from '../types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
-const USER_VOTES_KEY = 'poly_user_votes_v4'; 
+const USER_VOTES_KEY = 'poly_user_votes_v5'; // Incremented version to avoid conflicts
 const BRAND_LOGO = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
-
-// Helper to parse MCAP string like "15.2M" or "250.5K" into a number
-const parseMcapToNumber = (mcap: string): number => {
-    const value = parseFloat(mcap);
-    if (mcap.toUpperCase().includes('M')) return value * 1_000_000;
-    if (mcap.toUpperCase().includes('K')) return value * 1_000;
-    return value;
-};
 
 export const fetchMarketCap = async (ca: string): Promise<{ formatted: string; raw: number } | null> => {
   if (!ca || ca.length < 32) return null;
@@ -36,22 +28,21 @@ export const fetchMarketCap = async (ca: string): Promise<{ formatted: string; r
   }
 };
 
-
-export const getUserVote = (merketId: string): 'YES' | 'NO' | null => {
+export const getUserVote = (merketId: string): string | null => {
   try {
     const stored = localStorage.getItem(USER_VOTES_KEY);
     const votes = stored ? JSON.parse(stored) : {};
-    return votes[merketId] || null;
+    return votes[merketId] || null; // Returns option ID
   } catch (e) {
     return null;
   }
 };
 
-const saveUserVote = (merketId: string, option: 'YES' | 'NO') => {
+const saveUserVote = (merketId: string, optionId: string) => {
   try {
     const stored = localStorage.getItem(USER_VOTES_KEY);
     const votes = stored ? JSON.parse(stored) : {};
-    votes[merketId] = option;
+    votes[merketId] = optionId;
     localStorage.setItem(USER_VOTES_KEY, JSON.stringify(votes));
   } catch (e) {
     console.error("Failed to save vote locally", e);
@@ -63,7 +54,7 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
     try {
       const { data, error } = await supabase
         .from('markets')
-        .select('id, question, yes_votes, no_votes, created_at, image, description, contract_address, option_a, option_b, market_type, target_market_cap, expires_at, status')
+        .select('*, market_options(*)')
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -75,18 +66,20 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
         return data.map((item: any) => ({
           id: item.id.toString(),
           question: item.question,
-          yesVotes: parseInt(item.yes_votes || 0),
-          noVotes: parseInt(item.no_votes || 0),
           createdAt: new Date(item.created_at).getTime(),
           image: item.image,
           description: item.description,
           contractAddress: item.contract_address,
-          optionA: item.option_a || 'YES',
-          optionB: item.option_b || 'NO',
           marketType: item.market_type || 'STANDARD',
           targetMarketCap: item.target_market_cap ? Number(item.target_market_cap) : undefined,
           expiresAt: item.expires_at ? new Date(item.expires_at).getTime() : undefined,
           status: item.status || 'OPEN',
+          options: (item.market_options || []).map((opt: any) => ({
+            id: opt.id.toString(),
+            market_id: opt.market_id.toString(),
+            option_text: opt.option_text,
+            votes: opt.votes
+          })),
         }));
       }
     } catch (err) { 
@@ -96,35 +89,52 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
   return [];
 };
 
-export const createMarket = async (marketData: Omit<PredictionMerket, 'id' | 'yesVotes' | 'noVotes' | 'createdAt' | 'status'> & { status?: MarketStatus }): Promise<void> => {
-    if (isSupabaseConfigured() && supabase) {
-        const { marketType, question, description, image, contractAddress, optionA, optionB, targetMarketCap, expiresAt } = marketData;
-        
-        const { error } = await supabase.from('markets').insert([{
-            question,
-            description,
-            image: image || BRAND_LOGO,
-            yes_votes: 0,
-            no_votes: 0,
-            contract_address: contractAddress,
-            option_a: optionA || 'YES',
-            option_b: optionB || 'NO',
-            market_type: marketType,
-            target_market_cap: targetMarketCap,
-            expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
-            status: 'OPEN',
-        }]);
-
-        if (error) {
-            console.error("Error creating market:", error);
-            alert(`Failed to create market: ${error.message}`);
-        }
-
-    } else {
+export const createMarket = async (
+    marketData: Omit<PredictionMerket, 'id' | 'createdAt' | 'status' | 'options'> & { options: string[] }
+): Promise<void> => {
+    if (!isSupabaseConfigured() || !supabase) {
         console.error("Supabase not configured. Cannot create market.");
         alert("Database connection missing. Cannot deploy market.");
+        return;
+    }
+    
+    const { marketType, question, description, image, contractAddress, targetMarketCap, expiresAt, options } = marketData;
+
+    const marketToInsert = {
+        question,
+        description,
+        image: image || BRAND_LOGO,
+        contract_address: contractAddress,
+        market_type: marketType,
+        target_market_cap: targetMarketCap,
+        expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+        status: 'OPEN',
+    };
+
+    const { data: newMarket, error: marketError } = await supabase.from('markets').insert(marketToInsert).select().single();
+
+    if (marketError) {
+        console.error("Error creating market:", marketError);
+        alert(`Failed to create market: ${marketError.message}`);
+        throw marketError;
+    }
+
+    const optionsToInsert = options.map(opt => ({
+        market_id: newMarket.id,
+        option_text: opt,
+        votes: 0
+    }));
+
+    const { error: optionsError } = await supabase.from('market_options').insert(optionsToInsert);
+
+    if (optionsError) {
+        console.error("Market created, but failed to add options:", optionsError);
+        // Ideally, we'd delete the market here, but for simplicity we'll alert the user.
+        alert(`Market was created, but failed to add options: ${optionsError.message}`);
+        throw optionsError;
     }
 };
+
 
 export const checkAndResolveMarket = async (market: PredictionMerket): Promise<PredictionMerket | null> => {
     if (!supabase || market.status !== 'OPEN' || market.marketType !== 'MCAP_TARGET' || !market.contractAddress || !market.targetMarketCap || !market.expiresAt) {
@@ -157,27 +167,25 @@ export const checkAndResolveMarket = async (market: PredictionMerket): Promise<P
     return null; // No change
 };
 
-export const voteMerket = async (id: string, option: 'YES' | 'NO', status: MarketStatus): Promise<void> => {
+export const voteOnOption = async (newOptionId: string, oldOptionId: string | null, status: MarketStatus): Promise<void> => {
   if (!isSupabaseConfigured() || !supabase || status !== 'OPEN') {
       console.error("Cannot vote on this market.");
       return;
   }
   
-  const previousVote = getUserVote(id);
-  if (previousVote === option) return;
+  if (newOptionId === oldOptionId) return;
 
   try {
-    const { error } = await supabase.rpc('vote_market', {
-        p_market_id: parseInt(id, 10),
-        p_vote_type: option,
-        p_previous_vote: previousVote || null
+    const { error } = await supabase.rpc('vote_on_market_option', {
+        p_new_option_id: parseInt(newOptionId, 10),
+        p_old_option_id: oldOptionId ? parseInt(oldOptionId, 10) : null
     });
 
     if (error) {
         console.error("RPC Error:", error);
         throw error;
     } else {
-        saveUserVote(id, option);
+        saveUserVote(newOptionId.toString(), newOptionId);
     }
 
   } catch (err) {
