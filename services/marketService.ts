@@ -2,7 +2,6 @@
 import { PredictionMerket, MerketComment, MarketStatus, MarketType } from '../types';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
-const COMMENTS_KEY = 'poly_market_comments_v1';
 const USER_VOTES_KEY = 'poly_user_votes_v4'; 
 const BRAND_LOGO = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
 
@@ -64,7 +63,7 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
     try {
       const { data, error } = await supabase
         .from('markets')
-        .select('id, user_id, question, yes_votes, no_votes, created_at, image, description, contract_address, option_a, option_b, market_type, target_market_cap, expires_at, status')
+        .select('id, question, yes_votes, no_votes, created_at, image, description, contract_address, option_a, option_b, market_type, target_market_cap, expires_at, status')
         .order('created_at', { ascending: false });
       
       if (error) {
@@ -75,7 +74,6 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
       if (data) {
         return data.map((item: any) => ({
           id: item.id.toString(),
-          user_id: item.user_id,
           question: item.question,
           yesVotes: parseInt(item.yes_votes || 0),
           noVotes: parseInt(item.no_votes || 0),
@@ -100,16 +98,9 @@ export const getMerkets = async (): Promise<PredictionMerket[]> => {
 
 export const createMarket = async (marketData: Omit<PredictionMerket, 'id' | 'yesVotes' | 'noVotes' | 'createdAt' | 'status'> & { status?: MarketStatus }): Promise<void> => {
     if (isSupabaseConfigured() && supabase) {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            alert("You must be logged in to create a market.");
-            return;
-        }
-
         const { marketType, question, description, image, contractAddress, optionA, optionB, targetMarketCap, expiresAt } = marketData;
         
         const { error } = await supabase.from('markets').insert([{
-            user_id: user.id,
             question,
             description,
             image: image || BRAND_LOGO,
@@ -143,11 +134,9 @@ export const checkAndResolveMarket = async (market: PredictionMerket): Promise<P
     const now = Date.now();
     let newStatus: MarketStatus | null = null;
 
-    // Check for expiration first
     if (now > market.expiresAt) {
         newStatus = 'EXPIRED';
     } else {
-        // If not expired, check MCAP
         const mcapData = await fetchMarketCap(market.contractAddress);
         if (mcapData && mcapData.raw >= market.targetMarketCap) {
             newStatus = 'RESOLVED_YES';
@@ -173,12 +162,7 @@ export const voteMerket = async (id: string, option: 'YES' | 'NO', status: Marke
       console.error("Cannot vote on this market.");
       return;
   }
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-      throw new Error("User not authenticated");
-  }
-
+  
   const previousVote = getUserVote(id);
   if (previousVote === option) return;
 
@@ -206,7 +190,7 @@ export const getComments = async (marketId: string): Promise<MerketComment[]> =>
   if (isSupabaseConfigured() && supabase) {
     const { data, error } = await supabase
       .from('comments')
-      .select('*, profiles(username)')
+      .select('*')
       .eq('market_id', marketId)
       .order('created_at', { ascending: true });
     if (!error && data) return data as MerketComment[];
@@ -214,40 +198,17 @@ export const getComments = async (marketId: string): Promise<MerketComment[]> =>
   return [];
 };
 
-export const postComment = async (marketId: string, content: string): Promise<void> => {
+export const postComment = async (marketId: string, content: string, username: string): Promise<void> => {
   if (!content.trim()) return;
 
   if (isSupabaseConfigured() && supabase) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-        throw new Error("User not authenticated");
-    }
-    
     const { error } = await supabase.from('comments').insert([
         { 
             market_id: marketId, 
-            user_id: user.id,
-            content 
+            content,
+            username: username.trim() || 'anon'
         }
     ]);
     if (error) throw error;
   }
-};
-
-export const getProfile = async () => {
-    if (!supabase) return null;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
-
-    const { data, error } = await supabase
-        .from('profiles')
-        .select('username')
-        .eq('id', user.id)
-        .single();
-    
-    if (error && error.code !== 'PGRST116') { // Ignore 'exact one row' error for new users
-      console.error("Error fetching profile", error);
-      return null;
-    }
-    return data;
 };

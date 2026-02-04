@@ -1,13 +1,9 @@
 
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { getMerkets, voteMerket, getUserVote, createMarket, getComments, postComment, fetchMarketCap, checkAndResolveMarket, getProfile } from '../services/marketService';
+import { getMerkets, voteMerket, getUserVote, createMarket, getComments, postComment, fetchMarketCap, checkAndResolveMarket } from '../services/marketService';
 import { PredictionMerket as MerketType, MerketComment, MarketType, MarketStatus } from '../types';
 import { Loader2, X, Plus, MessageSquare, Star, Send, Target, Clock, CheckCircle, XCircle, User, LogOut, Info, Edit, ServerCrash, LogIn } from 'lucide-react';
 import { Chart, registerables } from 'https://esm.sh/chart.js';
-import UsernameSetupModal from './UsernameSetup';
-import { supabase } from '../services/supabaseClient';
-import type { Session } from '@supabase/supabase-js';
-import Auth from './Auth';
 
 Chart.register(...registerables);
 
@@ -60,12 +56,18 @@ const Countdown: React.FC<{ expiry: number }> = ({ expiry }) => {
     return <span>{d > 0 && `${d}d `}{h.toString().padStart(2, '0')}:{m.toString().padStart(2, '0')}:{s.toString().padStart(2, '0')}</span>;
 };
 
-const MerketDetailModal: React.FC<{ merket: MerketType; session: Session | null; onClose: () => void; onVote: (id: string, option: 'YES' | 'NO', status: MarketStatus) => void; isVoting: boolean; onMarketUpdate: (m: MerketType) => void; onLoginRequest: () => void; }> = ({ merket, session, onClose, onVote, isVoting, onMarketUpdate, onLoginRequest }) => {
+const MerketDetailModal: React.FC<{ merket: MerketType; onClose: () => void; onVote: (id: string, option: 'YES' | 'NO', status: MarketStatus) => void; isVoting: boolean; onMarketUpdate: (m: MerketType) => void; }> = ({ merket, onClose, onVote, isVoting, onMarketUpdate }) => {
   const [comments, setComments] = useState<MerketComment[]>([]);
   const [newComment, setNewComment] = useState('');
+  const [commentUsername, setCommentUsername] = useState('');
   const [mcap, setMcap] = useState<{formatted: string, raw: number} | null>(null);
   
-  useEffect(() => { const resolveCheck = async () => { const updatedMarket = await checkAndResolveMarket(merket); if (updatedMarket) onMarketUpdate(updatedMarket); }; if (merket.status === 'OPEN') resolveCheck(); }, [merket.id]);
+  useEffect(() => {
+    const savedUsername = localStorage.getItem('poly_username') || '';
+    setCommentUsername(savedUsername);
+    const resolveCheck = async () => { const updatedMarket = await checkAndResolveMarket(merket); if (updatedMarket) onMarketUpdate(updatedMarket); }; 
+    if (merket.status === 'OPEN') resolveCheck(); 
+  }, [merket.id]);
   
   const currentVote = getUserVote(merket.id);
   const [selectedOption, setSelectedOption] = useState<'YES' | 'NO' | null>(currentVote);
@@ -78,9 +80,19 @@ const MerketDetailModal: React.FC<{ merket: MerketType; session: Session | null;
   useEffect(() => { const fetchComments = async () => setComments(await getComments(merket.id)); fetchComments(); }, [merket.id]);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [comments]);
 
-  const handlePostComment = async (e: React.FormEvent) => { e.preventDefault(); if (!newComment.trim()) return; if (!session) { onLoginRequest(); return; } await postComment(merket.id, newComment); setNewComment(''); setComments(await getComments(merket.id)); };
+  const handlePostComment = async (e: React.FormEvent) => { 
+    e.preventDefault(); 
+    if (!newComment.trim() || !commentUsername.trim()) {
+        alert("Username and message are required.");
+        return;
+    }
+    localStorage.setItem('poly_username', commentUsername);
+    await postComment(merket.id, newComment, commentUsername); 
+    setNewComment(''); 
+    setComments(await getComments(merket.id)); 
+  };
   
-  const handleVoteClick = () => { if (!session) { onLoginRequest(); return; } if (selectedOption) onVote(merket.id, selectedOption, merket.status); };
+  const handleVoteClick = () => { if (selectedOption) onVote(merket.id, selectedOption, merket.status); };
 
   const isResolved = merket.status !== 'OPEN';
   const targetMcapFormatted = merket.targetMarketCap ? formatMcapTarget(merket.targetMarketCap) : '';
@@ -112,11 +124,11 @@ const MerketDetailModal: React.FC<{ merket: MerketType; session: Session | null;
             {merket.description && <p className="text-sm md:text-lg font-medium text-slate-400 mb-8 md:mb-12 px-2 leading-relaxed">"{merket.description}"</p>}
             <div className="mt-8 border-t border-slate-800 pt-6 md:pt-8 pb-20 md:pb-0">
               <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4 md:mb-6 flex items-center gap-2"><MessageSquare size={14} /> Global Feed</h4>
-              <div ref={scrollRef} className="space-y-3 md:space-y-4 max-h-48 md:max-h-64 overflow-y-auto custom-scroll pr-2 md:pr-4 mb-4 md:mb-6">{comments.length === 0 ? <div className="text-center py-8 text-slate-600 font-medium">Awaiting terminal signals...</div> : comments.map((c) => <div key={c.id} className="bg-slate-950 rounded-2xl p-3 md:p-4 border border-slate-800"><div className="flex justify-between items-center mb-1"><span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">{c.profiles?.username || 'anon'}</span><span className="text-[9px] text-slate-600 font-mono">{new Date(c.created_at).toLocaleTimeString()}</span></div><p className="text-xs md:text-sm font-medium text-slate-300">{c.content}</p></div>)}</div>
-              <form onSubmit={handlePostComment} className={`flex gap-2 bg-slate-950 p-2 rounded-2xl border border-slate-700 relative ${isResolved ? 'opacity-50' : 'focus-within:border-blue-500 transition-colors'}`}>
-                <input required type="text" placeholder="Type message..." className="flex-1 bg-transparent border-none px-2 md:px-3 py-2 text-xs md:text-sm font-medium text-white placeholder-slate-500 focus:outline-none" value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isResolved} />
+              <div ref={scrollRef} className="space-y-3 md:space-y-4 max-h-48 md:max-h-64 overflow-y-auto custom-scroll pr-2 md:pr-4 mb-4 md:mb-6">{comments.length === 0 ? <div className="text-center py-8 text-slate-600 font-medium">Awaiting terminal signals...</div> : comments.map((c) => <div key={c.id} className="bg-slate-950 rounded-2xl p-3 md:p-4 border border-slate-800"><div className="flex justify-between items-center mb-1"><span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">{c.username}</span><span className="text-[9px] text-slate-600 font-mono">{new Date(c.created_at).toLocaleTimeString()}</span></div><p className="text-xs md:text-sm font-medium text-slate-300">{c.content}</p></div>)}</div>
+              <form onSubmit={handlePostComment} className={`flex flex-col md:flex-row gap-2 bg-slate-950 p-2 rounded-2xl border border-slate-700 relative ${isResolved ? 'opacity-50' : 'focus-within:border-blue-500 transition-colors'}`}>
+                <input required type="text" placeholder="Your name" maxLength={15} className="bg-slate-800 border-none px-3 py-2 text-xs md:text-sm font-medium text-white placeholder-slate-500 focus:outline-none rounded-lg w-full md:w-32" value={commentUsername} onChange={(e) => setCommentUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))} disabled={isResolved} />
+                <input required type="text" placeholder="Type message..." className="flex-1 bg-slate-800 border-none px-3 py-2 text-xs md:text-sm font-medium text-white placeholder-slate-500 focus:outline-none rounded-lg" value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isResolved} />
                 <button type="submit" className="p-2 md:p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-500 transition-colors shadow-lg" disabled={isResolved}><Send size={14} className="md:w-4 md:h-4" /></button>
-                {!session && !isResolved && ( <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center rounded-2xl"> <button onClick={onLoginRequest} className="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg">Sign In to Comment</button> </div> )}
               </form>
             </div>
           </div>
@@ -125,7 +137,6 @@ const MerketDetailModal: React.FC<{ merket: MerketType; session: Session | null;
             <div className={`flex md:flex-col gap-3 ${isResolved ? 'opacity-40 pointer-events-none' : ''}`}><button onClick={() => setSelectedOption('YES')} className={`flex-1 md:w-full py-4 md:py-5 rounded-2xl font-bold text-sm md:text-lg border-2 transition-all uppercase tracking-wider ${selectedOption === 'YES' ? 'bg-green-500/10 border-green-500 text-green-400' : 'bg-slate-800 border-slate-700 hover:border-slate-600 text-slate-400'}`}>{labelA}</button><button onClick={() => setSelectedOption('NO')} className={`flex-1 md:w-full py-4 md:py-5 rounded-2xl font-bold text-sm md:text-lg border-2 transition-all uppercase tracking-wider ${selectedOption === 'NO' ? 'bg-red-500/10 border-red-500 text-red-400' : 'bg-slate-800 border-slate-700 hover:border-slate-600 text-slate-400'}`}>{labelB}</button></div>
             <button onClick={handleVoteClick} disabled={!selectedOption || isVoting || isResolved} className="w-full bg-blue-600 text-white font-bold py-4 md:py-5 rounded-2xl hover:bg-blue-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed mt-2 md:mt-4 shadow-xl uppercase tracking-wider text-sm md:text-base">{isVoting ? <Loader2 className="animate-spin mx-auto" /> : (isResolved ? 'Market Closed' : 'Submit Vote')}</button>
             <div className="grid grid-cols-1 gap-3 mt-2 md:mt-6"><button className="py-3 md:py-4 bg-slate-800 border border-slate-700 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700 transition-all text-slate-300"><XIcon size={12} className="md:w-[14px] md:h-[14px]" /> Share Analysis</button></div>
-            {!session && !isResolved && ( <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4"> <div className="text-center"> <h3 className="text-lg font-bold text-white mb-4">Login Required</h3> <p className="text-sm text-slate-400 mb-6">You must be logged in to cast a vote on this market.</p> <button onClick={onLoginRequest} className="w-full bg-blue-500 text-white font-bold py-3 px-4 rounded-lg">Sign In to Vote</button> </div> </div> )}
         </div>
       </div>
     </div>
@@ -198,10 +209,6 @@ const PredictionMarket: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState<'general' | 'mcap'>('general');
   const [activeSort, setActiveSort] = useState<'top' | 'new' | 'trending'>('top');
-  const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<{ username: string } | null>(null);
-  const [showUsernameSetup, setShowUsernameSetup] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
   const [dbError, setDbError] = useState<string|null>(null);
 
   const fetchInitialData = async () => {
@@ -226,31 +233,9 @@ const PredictionMarket: React.FC = () => {
 
   useEffect(() => {
     fetchInitialData();
-    
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        setSession(session);
-        if (session) {
-            const userProfile = await getProfile();
-            setProfile(userProfile);
-            if (localStorage.getItem('isNewUser')) {
-                localStorage.removeItem('isNewUser');
-                setShowUsernameSetup(true);
-            }
-        } else {
-            setProfile(null);
-        }
-    });
-    return () => subscription.unsubscribe();
   }, []);
   
-  const handleUsernameUpdated = async () => {
-      setShowUsernameSetup(false);
-      const userProfile = await getProfile();
-      setProfile(userProfile);
-  };
-
   const handleVote = async (id: string, option: 'YES' | 'NO', status: MarketStatus) => {
-    if (!session) { setShowAuthModal(true); return; }
     setActionLoading(true);
     try { 
       await voteMerket(id, option, status); 
@@ -270,9 +255,6 @@ const PredictionMarket: React.FC = () => {
 
   const handleMarketUpdate = (updatedMarket: MerketType) => { setMerkets(prev => prev.map(m => m.id === updatedMarket.id ? updatedMarket : m)); if (selectedMerket?.id === updatedMarket.id) { setSelectedMerket(updatedMarket); } };
   
-  const handleCreateMarketOpen = () => { if (!session) { setShowAuthModal(true); } else { setIsCreateOpen(true); } };
-  const handleLogout = async () => { await supabase.auth.signOut(); };
-
   const sortedMerkets = useMemo(() => {
     const categoryMarkets = merkets.filter(m => activeCategory === 'mcap' ? m.marketType === 'MCAP_TARGET' : m.marketType !== 'MCAP_TARGET');
     switch (activeSort) {
@@ -282,8 +264,6 @@ const PredictionMarket: React.FC = () => {
         default: return categoryMarkets;
     }
   }, [merkets, activeCategory, activeSort]);
-
-  const userDisplay = profile?.username || session?.user?.email?.split('@')[0] || 'anon';
   
   return (
     <section id="merkets">
@@ -301,26 +281,9 @@ const PredictionMarket: React.FC = () => {
                     <button onClick={() => setActiveSort('trending')} className={`flex-1 px-4 py-1.5 rounded-lg font-bold text-[10px] uppercase tracking-wider transition-all ${activeSort === 'trending' ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>Trending</button>
                 </div>
                 
-                <button onClick={handleCreateMarketOpen} className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-blue-600 transition-all shadow-2xl shadow-blue-500/20 border border-blue-400/20 shrink-0">
+                <button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-2 px-4 py-2.5 bg-blue-500 text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-blue-600 transition-all shadow-2xl shadow-blue-500/20 border border-blue-400/20 shrink-0">
                     <Plus size={16} /> <span className="hidden md:inline">New Market</span>
                 </button>
-
-                {session ? (
-                    <div className="flex items-center gap-2">
-                        <div className="text-right hidden sm:block bg-slate-950 border border-slate-800 px-4 py-2 rounded-full">
-                            <div className="text-sm font-bold text-slate-100 flex items-center gap-2">
-                                <User size={14} className="text-blue-400" />
-                                <span className="font-mono text-xs">{userDisplay}</span>
-                                <button onClick={() => setShowUsernameSetup(true)} className="text-slate-400 hover:text-white"><Edit size={12} /></button>
-                            </div>
-                        </div>
-                        <button onClick={handleLogout} title="Logout" className="p-2.5 bg-slate-800 border border-slate-700 rounded-full hover:bg-red-500/20 hover:border-red-500 transition-colors"><LogOut size={16} /></button>
-                    </div>
-                ) : (
-                    <button onClick={() => setShowAuthModal(true)} className="flex items-center justify-center gap-2 px-6 py-2.5 bg-slate-800 text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-slate-700 transition-all border border-slate-700 shadow-lg">
-                        <LogIn size={16}/> Login
-                    </button>
-                )}
             </div>
         </div>
         
@@ -337,16 +300,14 @@ const PredictionMarket: React.FC = () => {
             <ServerCrash size={56} className="mx-auto text-slate-700 mb-4" />
             <h3 className="text-2xl font-bold text-slate-300">No Oracle Signals Detected.</h3>
             <p className="text-slate-500 mt-2 mb-6">The terminal is waiting for new prediction markets. Why not be the first to deploy one?</p>
-            <button onClick={handleCreateMarketOpen} className="flex items-center gap-2 px-6 py-3 mx-auto bg-blue-500 text-white rounded-2xl font-bold text-sm uppercase tracking-wider hover:bg-blue-600 transition-all shadow-2xl shadow-blue-500/20 border border-blue-400/20">
+            <button onClick={() => setIsCreateOpen(true)} className="flex items-center gap-2 px-6 py-3 mx-auto bg-blue-500 text-white rounded-2xl font-bold text-sm uppercase tracking-wider hover:bg-blue-600 transition-all shadow-2xl shadow-blue-500/20 border border-blue-400/20">
                 <Plus size={18} /> Deploy New Market
             </button>
           </div>
         )}
       </div>
-      {selectedMerket && <MerketDetailModal merket={selectedMerket} session={session} onClose={() => { setSelectedMerket(null); window.location.hash = 'live-market'; }} onVote={handleVote} isVoting={actionLoading} onMarketUpdate={handleMarketUpdate} onLoginRequest={() => setShowAuthModal(true)} />}
+      {selectedMerket && <MerketDetailModal merket={selectedMerket} onClose={() => { setSelectedMerket(null); window.location.hash = 'live-market'; }} onVote={handleVote} isVoting={actionLoading} onMarketUpdate={handleMarketUpdate} />}
       {isCreateOpen && <CreateMarketModal onClose={()=>setIsCreateOpen(false)} onCreated={fetchInitialData} />}
-      {showUsernameSetup && <UsernameSetupModal onClose={handleUsernameUpdated} />}
-      {showAuthModal && <Auth onClose={() => setShowAuthModal(false)} />}
     </section>
   );
 };
