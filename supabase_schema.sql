@@ -1,6 +1,6 @@
--- ### POLYMARKET SUPABASE SCHEMA (CSAK PHANTOM WALLET) ###
+-- ### POLYMARKET SUPABASE SCHEMA (WEB3 ALÁÍRÁS ALAPÚ) ###
 
--- 1. LÉPÉS: Függőségek és régi objektumok eltávolítása a HELYES sorrendben
+-- 1. LÉPÉS: Régi, feleslegessé vált objektumok eltávolítása
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS public.handle_new_user();
 DROP FUNCTION IF EXISTS public.vote_market(bigint, text, text);
@@ -28,10 +28,11 @@ CREATE TABLE public.markets (
     CONSTRAINT markets_pkey PRIMARY KEY (id)
 );
 
--- 3. LÉPÉS: A 'profiles' tábla létrehozása a felhasználóneveknek
+-- 3. LÉPÉS: A 'profiles' tábla létrehozása wallet címmel
 CREATE TABLE public.profiles (
   id uuid NOT NULL REFERENCES auth.users ON DELETE CASCADE,
   username TEXT UNIQUE,
+  wallet_address TEXT UNIQUE NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),
   PRIMARY KEY (id),
   CONSTRAINT username_length CHECK (char_length(username) >= 3 AND char_length(username) <= 15)
@@ -71,44 +72,8 @@ BEGIN
 END;
 $function$;
 
--- 6. LÉPÉS: KIZÁRÓLAG PHANTOM-OT KEZELŐ funkció és trigger létrehozása
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-DECLARE
-  base_username TEXT;
-  final_username TEXT;
-  attempts INT := 0;
-BEGIN
-  -- Csak a Phantom @phantom.app e-maileket kezeljük
-  IF new.email LIKE '%@phantom.app' THEN
-    base_username := 'sol-' || substr(split_part(new.email, '@', 1), 1, 4) || '-' || substr(split_part(new.email, '@', 1), -4);
-  ELSE
-    -- Ha más típusú e-mail érkezik, hibát dobunk, megakadályozva a regisztrációt.
-    RAISE EXCEPTION 'Email-based signups are disabled. Please use a Phantom wallet.';
-  END IF;
-
-  final_username := substr(base_username, 1, 15);
-
-  -- Ciklus az egyedi felhasználónév megtalálásához
-  LOOP
-    BEGIN
-      INSERT INTO public.profiles (id, username)
-      VALUES (new.id, final_username);
-      RETURN new; -- Sikeres beszúrás esetén kilépés
-    EXCEPTION WHEN unique_violation THEN
-      attempts := attempts + 1;
-      final_username := substr(base_username, 1, 11) || '-' || (floor(random() * 900) + 100)::text;
-      IF attempts > 5 THEN
-        RAISE EXCEPTION 'Could not generate a unique username for user %', new.id;
-      END IF;
-    END;
-  END LOOP;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+-- 6. LÉPÉS: A régi 'handle_new_user' trigger és funkció ELTÁVOLÍTVA.
+-- A felhasználó létrehozását mostantól egy biztonságos Edge Function kezeli.
 
 -- 7. LÉPÉS: Sor Szintű Biztonság (RLS) engedélyezése
 ALTER TABLE public.markets ENABLE ROW LEVEL SECURITY;

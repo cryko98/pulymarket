@@ -1,5 +1,6 @@
 
 import { supabase } from './supabaseClient';
+import { Buffer } from 'buffer';
 
 // Add Phantom's injected provider type to the window object
 declare global {
@@ -12,9 +13,8 @@ declare global {
 }
 
 /**
- * Connects to the user's Phantom wallet, handling existing connections gracefully.
- * @returns {Promise<string>} The user's public key as a string.
- * @throws {Error} If Phantom wallet is not found or connection is rejected.
+ * Connects to the user's Phantom wallet.
+ * @returns {Promise<string>} The user's public key.
  */
 export const connectPhantomWallet = async (): Promise<string> => {
   const provider = window.phantom?.solana;
@@ -24,66 +24,67 @@ export const connectPhantomWallet = async (): Promise<string> => {
     throw new Error("Phantom wallet not found! Please install it.");
   }
 
-  if (provider.isConnected && provider.publicKey) {
-    return provider.publicKey.toString();
+  if (!provider.isConnected) {
+    await provider.connect();
   }
-
-  try {
-    const response = await provider.connect();
-    return response.publicKey.toString();
-  } catch (err) {
-    throw new Error("Wallet connection rejected by user.");
-  }
+  
+  return provider.publicKey.toString();
 };
 
-
 /**
- * Signs in or signs up a user using their Phantom wallet.
- * This function attempts to sign in with credentials derived from the wallet's public key.
- * If the user doesn't exist, it automatically creates a new account.
- * 
- * @throws {Error} If any step of the process fails.
+ * Signs in a user using a cryptographic signature from their Phantom wallet.
+ * This is the standard "Sign-In with Wallet" (SIWE) flow.
  */
 export const signInWithPhantom = async (): Promise<void> => {
     if (!supabase) {
-        throw new Error("Database connection is not configured. Please contact the site administrator.");
+        throw new Error("Database connection is not configured.");
     }
 
+    const provider = window.phantom?.solana;
+    if (!provider) {
+        throw new Error("Phantom provider not available.");
+    }
+    
     const publicKey = await connectPhantomWallet();
-    if (!publicKey) throw new Error("Could not get public key from wallet.");
 
-    const email = `${publicKey}@phantom.app`;
-    const password = publicKey;
+    // 1. Create a message for the user to sign
+    const message = `Please sign this message to authenticate with Polymarket.\n\nNonce: ${new Date().toISOString()}`;
+    const encodedMessage = new TextEncoder().encode(message);
 
-    // 1. Try to sign in
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+    // 2. Get the signature from the user
+    const { signature } = await provider.signMessage(encodedMessage, "utf8");
+    const signatureBuffer = Buffer.from(signature);
+
+    // 3. Call our secure edge function to verify the signature
+    const { data, error } = await supabase.functions.invoke('connect-wallet', {
+      body: { 
+        publicKey: publicKey,
+        signature: signatureBuffer.toString('base64'), // Send signature as base64
+        message: message,
+      },
     });
 
-    if (signInError) {
-        // 2. If sign-in fails, check for specific errors.
-        if (signInError.message.includes('Invalid login credentials')) {
-            // User does not exist, so sign them up.
-            const { error: signUpError } = await supabase.auth.signUp({
-                email,
-                password,
-            });
-
-            if (signUpError) {
-                if (signUpError.message.includes('Email logins are disabled')) {
-                     throw new Error("CRITICAL CONFIG ERROR: The Email Provider must be ENABLED in your Supabase project (Authentication -> Providers) for wallet login to function. Please enable it and try again.");
-                }
-                throw new Error(`Sign-up failed: ${signUpError.message}`);
-            }
-            // Sign-up was successful, set a flag for the UI to know this is a new user
-            localStorage.setItem('isNewUser', 'true');
-        } else if (signInError.message.includes('Email logins are disabled')) {
-            throw new Error("CRITICAL CONFIG ERROR: The Email Provider must be ENABLED in your Supabase project (Authentication -> Providers) for wallet login to function. Please enable it and try again.");
-        } else {
-            // A different sign-in error occurred.
-            throw new Error(`Sign-in failed: ${signInError.message}`);
-        }
+    if (error) {
+        console.error("Edge function error:", error);
+        throw new Error(error.message || 'Failed to verify signature.');
     }
-    // Sign-in or sign-up was successful
+
+    if (!data.accessToken) {
+        throw new Error('Authentication failed: No access token returned.');
+    }
+
+    // 4. Set the session on the client using the token from our function
+    const { error: sessionError } = await supabase.auth.setSession({
+      access_token: data.accessToken,
+      refresh_token: data.refreshToken, // Supabase now often returns this
+    });
+
+    if (sessionError) {
+        throw new Error(`Failed to set session: ${sessionError.message}`);
+    }
+
+    // Check if it's a new user based on function response
+    if (data.isNewUser) {
+        localStorage.setItem('isNewUser', 'true');
+    }
 };
