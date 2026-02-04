@@ -4,7 +4,6 @@ import { getMerkets, voteMerket, getUserVote, createMarket, getComments, postCom
 import { PredictionMerket as MerketType, MerketComment, MarketType, MarketStatus } from '../types';
 import { Loader2, X, Plus, MessageSquare, Star, Send, Target, Clock, CheckCircle, XCircle, User, LogOut, Info, Edit } from 'lucide-react';
 import { Chart, registerables } from 'https://esm.sh/chart.js';
-import Auth from './Auth';
 import UsernameSetupModal from './UsernameSetup';
 import { supabase } from '../services/supabaseClient';
 import type { Session } from '@supabase/supabase-js';
@@ -62,7 +61,7 @@ const Countdown: React.FC<{ expiry: number }> = ({ expiry }) => {
     return <span>{d > 0 && `${d}d `}{h.toString().padStart(2, '0')}:{m.toString().padStart(2, '0')}:{s.toString().padStart(2, '0')}</span>;
 };
 
-const MerketDetailModal: React.FC<{ merket: MerketType; session: Session | null; onClose: () => void; onVote: (id: string, option: 'YES' | 'NO', status: MarketStatus) => void; isVoting: boolean; onMarketUpdate: (m: MerketType) => void; onAuthOpen: () => void; }> = ({ merket, session, onClose, onVote, isVoting, onMarketUpdate, onAuthOpen }) => {
+const MerketDetailModal: React.FC<{ merket: MerketType; session: Session | null; onClose: () => void; onVote: (id: string, option: 'YES' | 'NO', status: MarketStatus) => void; isVoting: boolean; onMarketUpdate: (m: MerketType) => void; onLoginRequest: () => void; }> = ({ merket, session, onClose, onVote, isVoting, onMarketUpdate, onLoginRequest }) => {
   const [comments, setComments] = useState<MerketComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [mcap, setMcap] = useState<{formatted: string, raw: number} | null>(null);
@@ -80,9 +79,9 @@ const MerketDetailModal: React.FC<{ merket: MerketType; session: Session | null;
   useEffect(() => { const fetchComments = async () => setComments(await getComments(merket.id)); fetchComments(); }, [merket.id]);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [comments]);
 
-  const handlePostComment = async (e: React.FormEvent) => { e.preventDefault(); if (!newComment.trim()) return; if (!session) { onAuthOpen(); return; } await postComment(merket.id, newComment); setNewComment(''); setComments(await getComments(merket.id)); };
+  const handlePostComment = async (e: React.FormEvent) => { e.preventDefault(); if (!newComment.trim()) return; if (!session) { onLoginRequest(); return; } await postComment(merket.id, newComment); setNewComment(''); setComments(await getComments(merket.id)); };
   
-  const handleVoteClick = () => { if (!session) { onAuthOpen(); return; } if (selectedOption) onVote(merket.id, selectedOption, merket.status); };
+  const handleVoteClick = () => { if (!session) { onLoginRequest(); return; } if (selectedOption) onVote(merket.id, selectedOption, merket.status); };
 
   const isResolved = merket.status !== 'OPEN';
   const targetMcapFormatted = merket.targetMarketCap ? formatMcapTarget(merket.targetMarketCap) : '';
@@ -118,7 +117,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; session: Session | null;
               <form onSubmit={handlePostComment} className={`flex gap-2 bg-slate-950 p-2 rounded-2xl border border-slate-700 relative ${isResolved ? 'opacity-50' : 'focus-within:border-blue-500 transition-colors'}`}>
                 <input required type="text" placeholder="Type message..." className="flex-1 bg-transparent border-none px-2 md:px-3 py-2 text-xs md:text-sm font-medium text-white placeholder-slate-500 focus:outline-none" value={newComment} onChange={(e) => setNewComment(e.target.value)} disabled={isResolved} />
                 <button type="submit" className="p-2 md:p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-500 transition-colors shadow-lg" disabled={isResolved}><Send size={14} className="md:w-4 md:h-4" /></button>
-                {!session && !isResolved && ( <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center rounded-2xl"> <button onClick={onAuthOpen} className="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg">Sign In to Comment</button> </div> )}
+                {!session && !isResolved && ( <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center rounded-2xl"> <button onClick={onLoginRequest} className="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg">Sign In to Comment</button> </div> )}
               </form>
             </div>
           </div>
@@ -127,7 +126,7 @@ const MerketDetailModal: React.FC<{ merket: MerketType; session: Session | null;
             <div className={`flex md:flex-col gap-3 ${isResolved ? 'opacity-40 pointer-events-none' : ''}`}><button onClick={() => setSelectedOption('YES')} className={`flex-1 md:w-full py-4 md:py-5 rounded-2xl font-bold text-sm md:text-lg border-2 transition-all uppercase tracking-wider ${selectedOption === 'YES' ? 'bg-green-500/10 border-green-500 text-green-400' : 'bg-slate-800 border-slate-700 hover:border-slate-600 text-slate-400'}`}>{labelA}</button><button onClick={() => setSelectedOption('NO')} className={`flex-1 md:w-full py-4 md:py-5 rounded-2xl font-bold text-sm md:text-lg border-2 transition-all uppercase tracking-wider ${selectedOption === 'NO' ? 'bg-red-500/10 border-red-500 text-red-400' : 'bg-slate-800 border-slate-700 hover:border-slate-600 text-slate-400'}`}>{labelB}</button></div>
             <button onClick={handleVoteClick} disabled={!selectedOption || isVoting || isResolved} className="w-full bg-blue-600 text-white font-bold py-4 md:py-5 rounded-2xl hover:bg-blue-500 transition-all disabled:opacity-30 disabled:cursor-not-allowed mt-2 md:mt-4 shadow-xl uppercase tracking-wider text-sm md:text-base">{isVoting ? <Loader2 className="animate-spin mx-auto" /> : (isResolved ? 'Market Closed' : 'Submit Vote')}</button>
             <div className="grid grid-cols-1 gap-3 mt-2 md:mt-6"><button className="py-3 md:py-4 bg-slate-800 border border-slate-700 rounded-2xl flex items-center justify-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:bg-slate-700 transition-all text-slate-300"><XIcon size={12} className="md:w-[14px] md:h-[14px]" /> Share Analysis</button></div>
-            {!session && !isResolved && ( <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4"> <div className="text-center"> <h3 className="text-lg font-bold text-white mb-4">Login Required</h3> <p className="text-sm text-slate-400 mb-6">You must be logged in to cast a vote on this market.</p> <button onClick={onAuthOpen} className="w-full bg-blue-500 text-white font-bold py-3 px-4 rounded-lg">Sign In to Vote</button> </div> </div> )}
+            {!session && !isResolved && ( <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4"> <div className="text-center"> <h3 className="text-lg font-bold text-white mb-4">Login Required</h3> <p className="text-sm text-slate-400 mb-6">You must be logged in to cast a vote on this market.</p> <button onClick={onLoginRequest} className="w-full bg-blue-500 text-white font-bold py-3 px-4 rounded-lg">Sign In to Vote</button> </div> </div> )}
         </div>
       </div>
     </div>
@@ -202,7 +201,6 @@ const PredictionMarket: React.FC = () => {
   const [activeSort, setActiveSort] = useState<'top' | 'new' | 'trending'>('top');
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<{ username: string } | null>(null);
-  const [showAuthModal, setShowAuthModal] = useState(false);
   const [showUsernameSetup, setShowUsernameSetup] = useState(false);
   const [walletLoading, setWalletLoading] = useState(false);
   const [walletError, setWalletError] = useState<string|null>(null);
@@ -250,10 +248,10 @@ const PredictionMarket: React.FC = () => {
   }, []);
 
   const handleVote = async (id: string, option: 'YES' | 'NO', status: MarketStatus) => {
-    if (!session) { setShowAuthModal(true); return; }
+    if (!session) { handleWalletLogin(); return; }
     setActionLoading(true);
     try { await voteMerket(id, option, status); const updated = await getMerkets(); setMerkets(updated); if (selectedMerket?.id === id) { const newSelected = updated.find(m => m.id === id) || null; setSelectedMerket(newSelected); }
-    } catch (e) { console.error("Vote failed:", e); alert("Vote failed. Please ensure you are logged in."); setShowAuthModal(true); } finally { setActionLoading(false); }
+    } catch (e) { console.error("Vote failed:", e); alert("Vote failed. Please ensure you are logged in."); handleWalletLogin(); } finally { setActionLoading(false); }
   };
 
   const handleWalletLogin = async () => {
@@ -261,7 +259,6 @@ const PredictionMarket: React.FC = () => {
     setWalletError(null);
     try {
         await signInWithPhantom();
-        // onAuthStateChange will handle UI updates
     } catch (err: any) {
         setWalletError(err.message || 'Failed to connect wallet.');
     } finally {
@@ -271,7 +268,7 @@ const PredictionMarket: React.FC = () => {
 
   const handleMarketUpdate = (updatedMarket: MerketType) => { setMerkets(prev => prev.map(m => m.id === updatedMarket.id ? updatedMarket : m)); if (selectedMerket?.id === updatedMarket.id) { setSelectedMerket(updatedMarket); } };
   
-  const handleCreateMarketOpen = () => { if (!session) { setShowAuthModal(true); } else { setIsCreateOpen(true); } };
+  const handleCreateMarketOpen = () => { if (!session) { handleWalletLogin(); } else { setIsCreateOpen(true); } };
   const handleLogout = async () => { await supabase.auth.signOut(); };
 
   const sortedMerkets = useMemo(() => {
@@ -308,22 +305,17 @@ const PredictionMarket: React.FC = () => {
                     <div className="flex items-center gap-2">
                         <div className="text-right hidden sm:block">
                             <div className="text-sm font-bold text-slate-100 flex items-center gap-2">
-                                {session.user.email?.endsWith('@phantom.app') && <PhantomIcon size={14} />}
-                                {profile?.username ?? (session.user.email?.endsWith('@phantom.app') ? `${session.user.email.slice(0, 4)}...${session.user.email.slice(40)}` : session.user.email)}
+                                <PhantomIcon size={14} />
+                                {profile?.username ?? `${session.user.email.slice(0, 4)}...${session.user.email.slice(40)}`}
                                 <button onClick={() => setShowUsernameSetup(true)} className="text-slate-400 hover:text-white"><Edit size={12} /></button>
                             </div>
                         </div>
                         <button onClick={handleLogout} title="Logout" className="p-2.5 bg-slate-800 border border-slate-700 rounded-full hover:bg-red-500/20 hover:border-red-500 transition-colors"><LogOut size={16} /></button>
                     </div>
                 ) : (
-                    <div className="flex items-center gap-2">
-                        <button onClick={handleWalletLogin} disabled={walletLoading} className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#512da8] text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-[#4527a0] transition-all border border-slate-700 shadow-lg disabled:opacity-50">
-                            {walletLoading ? <Loader2 className="animate-spin" size={16}/> : 'Connect Phantom'}
-                        </button>
-                        <button onClick={() => setShowAuthModal(true)} className="flex items-center gap-2 px-4 py-2.5 bg-slate-800 text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-slate-700 transition-all border border-slate-700 shadow-lg">
-                            <User size={16} /> <span className="hidden md:inline">Login / Sign Up</span>
-                        </button>
-                    </div>
+                    <button onClick={handleWalletLogin} disabled={walletLoading} className="flex items-center justify-center gap-2 px-6 py-2.5 bg-[#512da8] text-white rounded-2xl font-bold text-xs uppercase tracking-wider hover:bg-[#4527a0] transition-all border border-slate-700 shadow-lg disabled:opacity-50">
+                        {walletLoading ? <Loader2 className="animate-spin" size={16}/> : 'Connect Phantom'}
+                    </button>
                 )}
             </div>
         </div>
@@ -338,9 +330,8 @@ const PredictionMarket: React.FC = () => {
           </div>
         )}
       </div>
-      {selectedMerket && <MerketDetailModal merket={selectedMerket} session={session} onClose={() => { setSelectedMerket(null); window.location.hash = 'live-market'; }} onVote={handleVote} isVoting={actionLoading} onMarketUpdate={handleMarketUpdate} onAuthOpen={() => setShowAuthModal(true)} />}
+      {selectedMerket && <MerketDetailModal merket={selectedMerket} session={session} onClose={() => { setSelectedMerket(null); window.location.hash = 'live-market'; }} onVote={handleVote} isVoting={actionLoading} onMarketUpdate={handleMarketUpdate} onLoginRequest={handleWalletLogin} />}
       {isCreateOpen && <CreateMarketModal onClose={()=>setIsCreateOpen(false)} onCreated={refreshMarkets} />}
-      {showAuthModal && <Auth onClose={() => setShowAuthModal(false)} />}
       {showUsernameSetup && <UsernameSetupModal onClose={handleUsernameUpdated} />}
     </section>
   );
