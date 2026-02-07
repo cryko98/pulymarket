@@ -6,7 +6,7 @@ interface HeroProps {
 }
 
 const Hero: React.FC<HeroProps> = ({ onStart }) => {
-  const heroImageUrl = "https://img.cryptorank.io/coins/polymarket1671006384460.png";
+  const heroImageUrl = "https://pbs.twimg.com/media/G8TVwV2XgAc";
 
   return (
     <section className="relative pt-24 pb-12 md:pt-32 md:pb-20">
@@ -14,11 +14,11 @@ const Hero: React.FC<HeroProps> = ({ onStart }) => {
       <div className="container mx-auto px-4 relative z-10">
         
         {/* Main Hero Image */}
-        <div className="w-56 h-56 md:w-72 md:h-72 mx-auto mb-8 md:mb-12 transform hover:scale-[1.05] transition-transform duration-700 p-4 rounded-full border-4 border-slate-700 bg-slate-800 drop-shadow-[0_0_60px_rgba(59,130,246,0.4)]">
+        <div className="w-56 h-56 md:w-72 md:h-72 mx-auto mb-8 md:mb-12 transform hover:scale-[1.05] transition-transform duration-700 p-4 rounded-full border-4 border-slate-700 bg-slate-800 drop-shadow-[0_0_60px_rgba(59,130,246,0.4)] overflow-hidden">
             <img 
                 src={heroImageUrl} 
-                alt="Polymarket Hero Art" 
-                className="w-full h-full object-contain"
+                alt="Hero Art" 
+                className="w-full h-full object-cover"
             />
         </div>
 
@@ -48,7 +48,7 @@ const Hero: React.FC<HeroProps> = ({ onStart }) => {
                   Enter Terminal
               </button>
               <a 
-                  href="https://dexscreener.com/solana/38zR2R1ZvdfqnPhtqz8SFPVBQnQHUXztQuzpXwBhpump"
+                  href="https://dexscreener.com/solana/xxxxxxxxxxxxxxxxxxxxxxxxx"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="bg-slate-800 text-slate-200 font-bold text-lg md:text-xl px-8 py-4 rounded-full hover:bg-slate-700 transition-all shadow-lg border border-slate-700 flex items-center justify-center hover:scale-105 active:scale-95 w-full sm:w-auto"
